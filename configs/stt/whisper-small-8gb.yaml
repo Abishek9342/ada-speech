@@ -1,7 +1,7 @@
 # ADA-STT fine-tuning config tuned for an 8 GB laptop GPU (e.g. RTX 5050).
 # Copy this file and change `language` and `data_dir` for your dataset.
 
-base_model: openai/whisper-small     # 244M params. Use whisper-base (74M) for a faster first run.
+base_model: openai/whisper-small     # 244M params. For the CPU-first v0.1 target use whisper-base (74M); see docs/DATA_TAMIL.md.
 language: tamil                      # Whisper language name, e.g. english, hindi, tamil
 task: transcribe
 data_dir: data/stt/cv-ta             # output of scripts/stt/prepare_data.py
