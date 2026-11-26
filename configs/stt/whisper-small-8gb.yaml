@@ -1,0 +1,29 @@
+# ADA-STT fine-tuning config tuned for an 8 GB laptop GPU (e.g. RTX 5050).
+# Copy this file and change `language` and `data_dir` for your dataset.
+
+base_model: openai/whisper-small     # 244M params. Use whisper-base (74M) for a faster first run.
+language: tamil                      # Whisper language name, e.g. english, hindi, tamil
+task: transcribe
+data_dir: data/stt/cv-ta             # output of scripts/stt/prepare_data.py
+output_dir: models/ada-stt-small
+
+# Memory: effective batch = 8 x 2 = 16. If you hit "CUDA out of memory",
+# halve per_device_train_batch_size and double gradient_accumulation_steps.
+per_device_train_batch_size: 8
+per_device_eval_batch_size: 8
+gradient_accumulation_steps: 2
+gradient_checkpointing: true
+bf16: true                           # RTX 50-series supports bf16; set false + fp16 true on older GPUs
+fp16: false
+
+learning_rate: 1.0e-5
+warmup_steps: 500
+max_steps: 4000
+eval_steps: 500
+save_steps: 500
+save_total_limit: 2
+logging_steps: 25
+generation_max_length: 225
+max_audio_seconds: 30                # Whisper's input window; longer clips are dropped
+dataloader_num_workers: 0            # 0 is safest on Windows
+seed: 42

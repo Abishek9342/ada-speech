@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Data and models are large: never commit them. Publish models on Hugging Face instead.
+data/
+models/
+runs/
+outputs/
+*.wav
+*.mp3
+*.flac
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
