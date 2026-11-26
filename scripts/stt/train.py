@@ -10,6 +10,7 @@ Quick smoke test before a long run (a few minutes, catches setup errors):
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,14 +26,20 @@ SAMPLE_RATE = 16_000
 
 @dataclass
 class SpeechCollator:
-    """Pads audio features and label tokens separately (they have different lengths)."""
+    """Turns raw audio into log-mel features and pads the label tokens."""
 
     processor: Any
     decoder_start_token_id: int
 
     def __call__(self, features: list[dict]) -> dict:
-        inputs = [{"input_features": f["input_features"]} for f in features]
-        batch = self.processor.feature_extractor.pad(inputs, return_tensors="pt")
+        # Log-mel features are computed here, per batch, instead of being stored:
+        # stored features are padded to 30 s, which for a few hundred hours of
+        # short clips would need hundreds of GB of disk.
+        batch = self.processor.feature_extractor(
+            [f["audio"]["array"] for f in features],
+            sampling_rate=SAMPLE_RATE,
+            return_tensors="pt",
+        )
 
         labels = [{"input_ids": f["labels"]} for f in features]
         labels_batch = self.processor.tokenizer.pad(labels, return_tensors="pt")
@@ -81,23 +88,24 @@ def main() -> None:
         ds["train"] = ds["train"].select(range(min(64, len(ds["train"]))))
         ds["test"] = ds["test"].select(range(min(16, len(ds["test"]))))
 
-    max_samples = cfg["max_audio_seconds"] * SAMPLE_RATE
+    max_seconds = cfg["max_audio_seconds"]
     max_label_tokens = cfg["generation_max_length"]
 
-    def prepare(example: dict) -> dict:
-        audio = example["audio"]
-        example["input_features"] = processor.feature_extractor(
-            audio["array"], sampling_rate=audio["sampling_rate"]
-        ).input_features[0]
-        example["labels"] = processor.tokenizer(example["transcription"]).input_ids
-        example["n_samples"] = len(audio["array"])
-        return example
-
-    ds = ds.map(prepare, remove_columns=ds["train"].column_names, desc="extracting features")
-    ds = ds.filter(
-        lambda n, labels: n <= max_samples and len(labels) <= max_label_tokens,
-        input_columns=["n_samples", "labels"],
-    ).remove_columns("n_samples")
+    # Only the text column is touched here, so no audio is decoded and nothing large is cached.
+    ds = ds.map(
+        lambda text: {"labels": processor.tokenizer(text).input_ids},
+        input_columns=["transcription"],
+        desc="tokenizing transcripts",
+    )
+    ds = ds.filter(lambda labels: len(labels) <= max_label_tokens, input_columns=["labels"])
+    if "duration" in ds["train"].column_names:
+        # Unknown durations (None/NaN) are kept; the feature extractor truncates at 30 s.
+        ds = ds.filter(
+            lambda d: d is None or math.isnan(d) or d <= max_seconds, input_columns=["duration"]
+        )
+    else:
+        print("WARNING: no duration column; clips over 30 s are not filtered. "
+              "Re-run prepare_data.py to add it.")
     print(f"train={len(ds['train'])}  test={len(ds['test'])}")
 
     # ---- metrics ------------------------------------------------------------
@@ -133,6 +141,7 @@ def main() -> None:
         greater_is_better=False,
         report_to=["tensorboard"],
         dataloader_num_workers=cfg["dataloader_num_workers"],
+        remove_unused_columns=False,  # the collator needs the raw "audio" column
         seed=cfg["seed"],
     )
 

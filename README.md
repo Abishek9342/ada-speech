@@ -35,12 +35,13 @@ See [docs/SETUP_WINDOWS.md](docs/SETUP_WINDOWS.md) for the full setup.
 python scripts/check_gpu.py                                          # 1. GPU works?
 python scripts/stt/prepare_data.py --format commonvoice \
        --src path/to/cv/ta --out data/stt/cv-ta                      # 2. data
-python scripts/stt/train.py --config configs/stt/whisper-small-8gb.yaml --smoke   # 3. smoke test
-python scripts/stt/train.py --config configs/stt/whisper-small-8gb.yaml           # 4. real run
+python scripts/stt/audit_data.py --data data/stt/cv-ta                # 3. check data quality
+python scripts/stt/train.py --config configs/stt/whisper-small-8gb.yaml --smoke   # 4. smoke test
+python scripts/stt/train.py --config configs/stt/whisper-small-8gb.yaml           # 5. real run
 python scripts/stt/export_ct2.py --model models/ada-stt-small/final \
-       --out models/ada-stt-small-ct2                                # 5. make it CPU-fast
+       --out models/ada-stt-small-ct2                                # 6. make it CPU-fast
 python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta \
-       --models small models/ada-stt-small-ct2                       # 6. prove it's better
+       --models small models/ada-stt-small-ct2                       # 7. prove it's better
 ```
 
 ## Project layout
@@ -49,16 +50,18 @@ python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta \
 src/ada/
   text.py            text normalization + WER (shared by training and eval)
   stt/inference.py   CPU inference (faster-whisper, int8)
+  stt/audit.py       data-quality checks (leakage, bad transcripts, scripts)
   stt/cli.py         `ada-stt` command
   tts/, t2t/         planned components
 scripts/
   check_gpu.py       verify PyTorch + CUDA on the training machine
-  stt/prepare_data.py  dataset -> audiofolder layout
+  stt/prepare_data.py  dataset -> audiofolder layout (+ duration, speaker)
+  stt/audit_data.py  data-quality report before training
   stt/train.py       fine-tune Whisper on your GPU
   stt/export_ct2.py  convert to int8 CTranslate2 for CPU
   stt/evaluate.py    WER + real-time factor on CPU
 configs/stt/         training configs (8 GB VRAM preset)
-docs/                setup guide and roadmap
+docs/                setup guide, roadmap, Tamil data plan (DATA_TAMIL.md)
 tests/               fast tests, no GPU or model downloads
 ```
 

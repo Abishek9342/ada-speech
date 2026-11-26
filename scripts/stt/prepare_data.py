@@ -6,13 +6,15 @@ Output layout (Hugging Face "audiofolder"):
         train/metadata.csv   + audio files
         test/metadata.csv    + audio files
 
-metadata.csv has two columns: file_name, transcription
+metadata.csv columns: file_name, transcription, duration (seconds), speaker
+Run scripts/stt/audit_data.py on the output before training.
 
 Supported inputs:
   --format commonvoice : an extracted Mozilla Common Voice language folder
                          (contains clips/ and train.tsv, test.tsv, ...)
   --format csv         : your own data, a CSV with columns `path,text`
-                         (paths relative to the CSV); split into train/test here
+                         and optionally `speaker` (paths relative to the CSV);
+                         split into train/test here, keeping each speaker in one split
 
 Examples:
   python scripts/stt/prepare_data.py --format commonvoice --src D:/cv/ta --out data/stt/cv-ta
@@ -27,23 +29,35 @@ import random
 import shutil
 from pathlib import Path
 
+Row = tuple[Path, str, str]  # (audio path, transcript, speaker id or "")
 
-def _write_split(rows: list[tuple[Path, str]], out_dir: Path, max_rows: int | None) -> int:
+
+def _duration(path: Path) -> str:
+    """Seconds, read from the file header only (fast). Empty if unreadable."""
+    try:
+        import soundfile
+
+        return f"{soundfile.info(str(path)).duration:.2f}"
+    except (ImportError, RuntimeError, OSError):  # missing lib, unreadable or unsupported file
+        return ""
+
+
+def _write_split(rows: list[Row], out_dir: Path, max_rows: int | None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     if max_rows:
         rows = rows[:max_rows]
     written = 0
     with open(out_dir / "metadata.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["file_name", "transcription"])
-        for src, text in rows:
+        writer.writerow(["file_name", "transcription", "duration", "speaker"])
+        for src, text, speaker in rows:
             text = " ".join(text.split())
             if not src.exists() or not text:
                 continue
             dst = out_dir / src.name
             if not dst.exists():
                 shutil.copy2(src, dst)
-            writer.writerow([src.name, text])
+            writer.writerow([src.name, text, _duration(dst), speaker])
             written += 1
     return written
 
@@ -53,25 +67,41 @@ def _read_tsv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE))
 
 
-def from_commonvoice(src: Path) -> dict[str, list[tuple[Path, str]]]:
+def from_commonvoice(src: Path) -> dict[str, list[Row]]:
     clips = src / "clips"
     splits = {}
     for split, tsv in (("train", "train.tsv"), ("test", "test.tsv")):
         rows = _read_tsv(src / tsv)
-        splits[split] = [(clips / r["path"], r["sentence"]) for r in rows]
+        splits[split] = [(clips / r["path"], r["sentence"], r.get("client_id", "")) for r in rows]
     return splits
 
 
-def from_csv(src: Path, test_fraction: float, seed: int) -> dict[str, list[tuple[Path, str]]]:
+def from_csv(src: Path, test_fraction: float, seed: int) -> dict[str, list[Row]]:
     with open(src, encoding="utf-8") as f:
-        rows = [(src.parent / r["path"], r["text"]) for r in csv.DictReader(f)]
+        rows = [
+            (src.parent / r["path"], r["text"], (r.get("speaker") or "").strip())
+            for r in csv.DictReader(f)
+        ]
     # Drop unusable rows BEFORE splitting, so the test set never ends up empty.
-    rows = [(p, t) for p, t in rows if t.strip() and p.exists()]
+    rows = [(p, t, spk) for p, t, spk in rows if t.strip() and p.exists()]
     if len(rows) < 2:
         raise SystemExit(f"Need at least 2 usable rows, found {len(rows)}.")
-    random.Random(seed).shuffle(rows)
-    n_test = max(1, int(len(rows) * test_fraction))
-    return {"test": rows[:n_test], "train": rows[n_test:]}
+
+    # Split by speaker when known, so test speakers are never heard in training;
+    # otherwise the test score overstates how well the model handles new voices.
+    groups: dict[str, list[Row]] = {}
+    for i, row in enumerate(rows):
+        groups.setdefault(row[2] or f"__row{i}", []).append(row)
+    keys = sorted(groups)
+    random.Random(seed).shuffle(keys)
+    target = max(1, int(len(rows) * test_fraction))
+    test: list[Row] = []
+    train: list[Row] = []
+    for key in keys:
+        (test if len(test) < target else train).extend(groups[key])
+    if not train:
+        raise SystemExit("Every row ended up in test; lower --test-fraction or add speakers.")
+    return {"test": test, "train": train}
 
 
 def main() -> None:
