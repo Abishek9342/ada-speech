@@ -57,13 +57,15 @@ src/ada/
   tts/, t2t/         planned components
 scripts/
   check_gpu.py       verify PyTorch + CUDA on the training machine
-  stt/prepare_data.py  dataset -> audiofolder layout (+ duration, speaker)
+  stt/prepare_data.py  Common Voice / FLEURS / IISc-MILE / CSV -> metadata.csv
+                       (+ duration, speaker; train-only quality filters)
   stt/audit_data.py  data-quality report before training
   stt/train.py       fine-tune Whisper on your GPU
   stt/export_ct2.py  convert to int8 CTranslate2 for CPU
-  stt/evaluate.py    WER + real-time factor on CPU
-configs/stt/         training configs (8 GB VRAM preset)
-docs/                setup guide, roadmap, Tamil data plan (DATA_TAMIL.md)
+  stt/evaluate.py    WER + CER + real-time factor on CPU (saves transcripts)
+configs/stt/         whisper-base-8gb (v0.1), whisper-small-8gb, smoke-tiny-cpu (no GPU)
+docs/                setup guide, roadmap, Tamil data plan (DATA_TAMIL.md),
+                     baseline results (BASELINES.md)
 tests/               fast tests, no GPU or model downloads
 ```
 

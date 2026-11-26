@@ -28,12 +28,18 @@ def main() -> None:
     p.add_argument("--device", default="cpu", choices=["cpu", "cuda"])
     p.add_argument("--limit", type=int, default=200, help="max clips (CPU eval is slow)")
     p.add_argument("--beam-size", type=int, default=5)
+    p.add_argument("--exclude-digits", action="store_true",
+                   help="skip clips whose reference contains digits (models trained on "
+                        "number-as-words data are otherwise penalised for a style difference)")
     p.add_argument("--save-dir", type=Path, default=None,
                    help="write each model's transcripts here as <model>.csv, for error analysis")
     args = p.parse_args()
 
     with open(args.data / "metadata.csv", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))[: args.limit]
+        rows = list(csv.DictReader(f))
+    if args.exclude_digits:
+        rows = [r for r in rows if not any(ch.isdigit() for ch in r["transcription"])]
+    rows = rows[: args.limit]
     refs = [r["transcription"] for r in rows]
     print(f"Evaluating on {len(rows)} clips from {args.data} ({args.device})\n")
 

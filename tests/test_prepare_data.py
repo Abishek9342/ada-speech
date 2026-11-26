@@ -40,14 +40,15 @@ def test_fleurs_reads_headerless_tsv_and_skips_missing_splits(tmp_path):
 def test_mile_pairs_audio_with_transcripts_in_nested_folder(tmp_path):
     root = tmp_path / "mile_tamil_asr_corpus"
     for split in ("train", "test"):
-        wav(root / split / "audio_files" / f"{split}_a.wav")
-        wav(root / split / "audio_files" / f"{split}_orphan.wav")  # no transcript: skipped
+        wav(root / split / "audio_files" / f"MILE_{split}01_0001.wav")
+        wav(root / split / "audio_files" / f"MILE_{split}01_0002.wav")  # no transcript: skipped
         (root / split / "trans_files").mkdir(parents=True)
-        (root / split / "trans_files" / f"{split}_a.txt").write_text(" நன்றி \n", encoding="utf-8")
+        (root / split / "trans_files" / f"MILE_{split}01_0001.txt").write_text(
+            " நன்றி \n", encoding="utf-8")
     splits = prep.from_mile(tmp_path)  # one level above: must still be found
     assert {k: [r[0].name for r in v] for k, v in splits.items()} == {
-        "train": ["train_a.wav"], "test": ["test_a.wav"]}
-    assert splits["train"][0][1] == "நன்றி"
+        "train": ["MILE_train01_0001.wav"], "test": ["MILE_test01_0001.wav"]}
+    assert splits["train"][0][1:] == ("நன்றி", "MILE_train01")
 
 
 def test_write_split_records_duration(tmp_path):
@@ -67,3 +68,21 @@ def test_export_writes_preprocessor_config_from_processor_config(tmp_path):
         json.dumps({"feature_extractor": {"feature_size": 128}}), encoding="utf-8")
     export._ensure_preprocessor_config(model, out)
     assert json.loads((out / "preprocessor_config.json").read_text())["feature_size"] == 128
+
+
+def test_filters_only_touch_train(tmp_path):
+    wav(tmp_path / "short.wav", seconds=0.5)
+    wav(tmp_path / "ok.wav", seconds=2.0)
+    splits = {
+        "train": [
+            (tmp_path / "ok.wav", "விலை 100 ரூபாய்", ""),    # digits
+            (tmp_path / "ok.wav", "வணக்கம், நண்பரே!", ""),   # same sentence as test
+            (tmp_path / "short.wav", "சரி", ""),             # too short
+            (tmp_path / "ok.wav", "நன்றி", ""),              # kept
+        ],
+        "test": [(tmp_path / "ok.wav", "வணக்கம் நண்பரே", ""), (tmp_path / "ok.wav", "1 2 3", "")],
+    }
+    out = prep.apply_filters(splits, drop_digit_clips=True, dedupe_test_sentences=True,
+                             min_seconds=1.0)
+    assert [r[1] for r in out["train"]] == ["நன்றி"]
+    assert out["test"] == splits["test"]

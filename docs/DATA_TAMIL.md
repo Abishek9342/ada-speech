@@ -73,6 +73,9 @@ Tier 1 total: **~570 hours**. That is plenty for a whisper-base fine-tune.
 
 ## What already exists (ADA's competition)
 
+> **Measured ourselves:** see [BASELINES.md](BASELINES.md). On the same 150 FLEURS clips,
+> vasista22 scored 27.6% WER / 11.4% CER (not 9.1%), stock Whisper base 102.2% / 54.6%.
+
 Self-reported WER from model cards and papers. Test sets and text
 normalization differ, so these are **not directly comparable**.
 
@@ -111,13 +114,6 @@ stock Whisper and the models above, with the same normalization.
   extra space is only needed for checkpoints (~1–3 GB each for whisper-base/small).
 - Keep **at least 100 GB free** for Tier 1 + Tier 2.
 
-## Tomorrow's checklist
+## Next steps
 
-1. Laptop setup (`docs/SETUP_WINDOWS.md`) and `python scripts/check_gpu.py`.
-2. Create a Mozilla Data Collective account and download **Common Voice Tamil**.
-   Create a free Hugging Face account, accept the Kathbath and IndicVoices terms,
-   and make a read token (`huggingface-cli login`).
-3. `python scripts/stt/prepare_data.py --format commonvoice --src <cv-ta folder> --out data/stt/cv-ta`
-4. `python scripts/stt/audit_data.py --data data/stt/cv-ta`, and send me the summary.
-5. Baseline: `python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta --models tiny base small`
-6. Then add Kathbath Tamil and the first smoke-test training run.
+Follow [LAPTOP_DAY1_PLAN.md](../LAPTOP_DAY1_PLAN.md).

@@ -54,11 +54,17 @@ class Transcriber:
         language: str | None = None,
         beam_size: int = 5,
         vad_filter: bool = True,
+        without_timestamps: bool = True,
     ) -> Result:
         """Transcribe one audio file.
 
         vad_filter=True skips silence before decoding. It is on by default because
         Whisper-style models tend to invent text during long silences.
+
+        without_timestamps=True matches how ADA (and most community fine-tunes) are
+        trained. With timestamps on, fine-tuned models sometimes emit the whole
+        transcript twice: on FLEURS Tamil this took vasista22/whisper-tamil-small
+        from 157% to 76% WER on the affected clips.
         """
         start = time.perf_counter()
         segments, info = self._model.transcribe(
@@ -67,6 +73,7 @@ class Transcriber:
             beam_size=beam_size,
             vad_filter=vad_filter,
             condition_on_previous_text=False,  # reduces repetition loops
+            without_timestamps=without_timestamps,
         )
         text = " ".join(seg.text.strip() for seg in segments).strip()
         return Result(

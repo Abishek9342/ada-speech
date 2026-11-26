@@ -5,10 +5,77 @@
 > **How to use it:** the owner opens this repo in VS Code and tells Claude Code:
 > *"Read LAPTOP_DAY1_PLAN.md and do Day 1, step by step. Log everything in logs/DAY1_LOG.md."*
 >
-> Written by the cloud Claude Code session on 26 Nov 2026. Everything in this
-> repo so far was written in the cloud, where there is **no GPU** and no access to
-> the laptop. The tests pass, but **`train.py`, `export_ct2.py` and `evaluate.py`
-> have never run on real data or a GPU.** Expect small bugs; fixing them is part of today.
+> Written by the cloud Claude Code session on 26 Nov 2026 and **updated the same night
+> after the cloud tested the whole pipeline on CPU** (section A). The cloud has no GPU:
+> everything that needs the RTX 5050, the owner's accounts, or data kept on the laptop
+> is left for today. All data and models used in the cloud were deleted afterwards;
+> **the laptop downloads its own copies** (section 3).
+
+---
+
+## A. Already done in the cloud (don't redo)
+
+| Done | Result |
+|---|---|
+| Full pipeline run on CPU: `prepare_data` → `audit_data` → `train --smoke` (whisper-tiny, 20 steps) → `export_ct2` → `evaluate` | **Works end to end.** Smoke model: WER 126.6 → 89.2, CER → 39.5 in 20 steps on 64 clips; exported int8 model 43 MB. |
+| Bugs found and fixed (all pushed) | `av` 19 breaks faster-whisper audio decoding → pinned `av<19`. `train.py` no longer uses the `audiofolder` loader (rejected valid metadata with new pyarrow). `export_ct2.py` now writes `preprocessor_config.json` (transformers 5 saves `processor_config.json` instead). Inference now uses `without_timestamps=True` (fine-tuned models sometimes printed the transcript twice). |
+| Data filters (train only) | `--drop-digit-clips`, `--dedupe-test-sentences`, `--min-seconds` in `prepare_data.py`. |
+| Data converters | `--format fleurs` (tested on real FLEURS Tamil), `--format mile` (tested on 3,000 real IISc-MILE clips, reads speaker IDs from file names), `--format commonvoice` (not yet run on real data). |
+| Data checks | FLEURS Tamil test: 591 clips, 2.13 h; **21% of transcripts contain digits**, 9% English words. IISc-MILE sample (3,000 clips, 9.1 h, 55 speakers): **no digits, no English letters**, very clean (42 repeated sentences, 6 clips > 30 s). |
+| Baseline on FLEURS Tamil test (150 clips, CPU, int8, beam 5) | See table in section B. |
+| Configs | `configs/stt/whisper-base-8gb.yaml` (v0.1 target, ready), `configs/stt/smoke-tiny-cpu.yaml` (pipeline check without GPU). |
+| Tests | 20 tests pass, `ruff` clean. |
+
+**Never run yet** (today's job): anything on the GPU (CUDA, bf16), `--format commonvoice` on
+real data, a training run longer than 20 steps, speed on the laptop's own CPU.
+
+---
+
+## B. Baseline: what ADA has to beat
+
+FLEURS Tamil test, first 150 clips, cloud CPU (4 shared cores, so RTF is pessimistic),
+int8, beam 5, ADA's normalization. **RTF < 1 = faster than real time.**
+
+| Model | Params | WER % | CER % | RTF |
+|---|---|---|---|---|
+| `vasista22/whisper-tamil-small` (int8) | 244M | **27.61** | **11.42** | 1.91 |
+| Stock Whisper small | 244M | 77.81 | 32.50 | 1.48 |
+| **Stock Whisper base (ADA v0.1 starts here)** | 74M | 102.19 | 54.64 | 1.04 |
+| Stock Whisper tiny | 39M | 123.59 | 72.06 | 0.73 |
+
+Details, settings and error examples: [docs/BASELINES.md](docs/BASELINES.md).
+**ADA v0.1 should land far below base's 54.6% CER and approach vasista22's 11.4% CER at a
+third of its size.**
+
+Why vasista22 scores 27.6% here vs the 9.1% on its model card:
+- **Numbers:** FLEURS writes numbers as digits ("1963"), the model writes Tamil words.
+  Clips with digits: 39.2% WER; without digits: 24.9%.
+- **Word spacing:** e.g. `வேக வைக்கப்பட்ட` vs `வேகவைக்கப்பட்ட`. Each is a whole wrong word for WER
+  but only one character for CER. That's why ADA reports **CER** too.
+- 3 of 150 clips came out twice (fixed for ADA by `without_timestamps=True`; this run used the old setting).
+- Different normalization and int8 quantization also play a part.
+
+Competitor from its model card: `rajagowthamr/tamil-conformer-transducer-74m` (same size as
+ADA's target) reports 31.6% WER / 10.5% CER on IndicVoices Tamil valid. Not run here
+(custom code).
+
+---
+
+## C. Decision the owner must make first: how numbers are written
+
+| Source | Numbers written as |
+|---|---|
+| IISc-MILE | Tamil words (no digits found) |
+| Common Voice | Words, by Common Voice's sentence rules (confirm with the audit) |
+| FLEURS | Digits (21% of clips) |
+| vasista22's output | Mostly Tamil words |
+
+**Recommendation for v0.1:** train on **numbers as Tamil words** (that's what the main training
+data already does, so no risky text conversion is needed). Report FLEURS results **twice**:
+all clips, and `--exclude-digits` (no digit clips), and say so in the model card.
+Converting digits ↔ Tamil words properly (with case endings like `1963இல்`) is a later project.
+
+Ask the owner to confirm before step 4.
 
 ---
 
@@ -17,254 +84,236 @@
 - **ADA** = open-source family of small encoder-decoder Transformer models for speech and
   text that run well **on a CPU**. Goal: at least 10 real users.
 - **ADA-STT** (speech to text) comes first, for **Tamil**.
-- **v0.1 target:** fine-tune **Whisper base (74M)**, export to **int8 CTranslate2**, so it is
-  small, faster than real time on a laptop CPU, and installable with `pip`.
-  It must clearly beat stock Whisper base and be honest about how it compares with:
-  - `rajagowthamr/tamil-conformer-transducer-74m`: 31.6% WER / 10.5% CER on IndicVoices Tamil valid
-  - `vasista22/whisper-tamil-small` (244M): 9.11% WER on FLEURS test
-- **Rule from the owner: quality data first.** Nothing gets trained on data that hasn't
-  been through `scripts/stt/audit_data.py`.
-- Background reading, in this order: `README.md`, `docs/DATA_TAMIL.md`, `docs/ROADMAP.md`,
-  `docs/SETUP_WINDOWS.md`.
+- **v0.1 target:** fine-tune **Whisper base (74M)**, export to **int8 CTranslate2** (~40–80 MB),
+  faster than real time on a laptop CPU, installable with `pip`, clearly better than stock
+  Whisper base, honestly compared with vasista22 and the 74M conformer.
+- **Rule from the owner: quality data first.** Nothing is trained on data that hasn't been
+  through `scripts/stt/audit_data.py`.
+- Background reading: `README.md`, `docs/DATA_TAMIL.md`, `docs/ROADMAP.md`, `docs/SETUP_WINDOWS.md`.
 
 ### Hardware
-- Windows laptop, **NVIDIA RTX 5050, 8 GB VRAM** (Blackwell architecture), **16 GB RAM**.
-- Blackwell needs **PyTorch built for CUDA 12.8 or newer**. A normal `pip install torch`
-  may give a build that installs fine but fails when a GPU kernel runs.
+- Windows laptop, **NVIDIA RTX 5050, 8 GB VRAM** (Blackwell), **16 GB RAM**.
+- Blackwell needs **PyTorch built for CUDA 12.8 or newer**.
 
 ---
 
 ## 1. Rules for Claude Code today
 
-1. **Log everything** in `logs/DAY1_LOG.md` (template in section 9): each command,
-   whether it worked, key numbers, errors and the fix. Append as you go, don't write it at the end.
-2. **Stop and tell the owner** when a step needs them: browser sign-ups, accepting dataset
-   terms, entering tokens, anything that costs money, or deleting more than a few files.
-3. **Never commit** data, audio, models or tokens. `.gitignore` already excludes
-   `data/`, `models/`, `runs/`, `*.wav`, `*.mp3`, `*.safetensors`, `*.bin`, `*.pt`.
-   Never put a Hugging Face token in a file in the repo.
-4. **Fix bugs in the repo's scripts when you hit them**, add or extend a test in `tests/`
-   where it makes sense, run `pytest` and `ruff check .`, then commit with a clear message.
-5. **Keep the laptop awake**: plugged in, sleep set to Never while plugged in (see `docs/SETUP_WINDOWS.md`).
-6. Use **PowerShell** commands. Paths below are relative to the repo root.
-7. If a step fails twice for the same reason, write the error in the log and ask the owner
-   instead of guessing.
+1. **Log everything** in `logs/DAY1_LOG.md` (template in section 9), as you go.
+2. **Stop and ask the owner** for: browser sign-ups, accepting dataset terms, tokens,
+   the number decision (section C), anything costing money, deleting more than a few files.
+3. **Never commit** data, audio, models or tokens (`.gitignore` already excludes them).
+4. Fix bugs in the scripts when you hit them, add a test where sensible, run `pytest`
+   and `ruff check .`, commit with a clear message.
+5. Keep the laptop plugged in and awake (see `docs/SETUP_WINDOWS.md`).
+6. Use **PowerShell**. Paths are relative to the repo root unless shown otherwise.
+7. If a step fails twice for the same reason, log the error and ask the owner.
 
 ---
 
 ## 2. Step 1: Environment setup (about 30–45 min)
 
-### 1a. Check the basics
 ```powershell
-nvidia-smi                      # must list the RTX 5050; "CUDA Version" must be 12.8 or higher
-python --version                # or: py -0  (lists installed Pythons)
+nvidia-smi                      # RTX 5050 listed, "CUDA Version" 12.8 or higher
+py -0                           # installed Pythons; 3.12 preferred
 git --version
-Get-PSDrive -PSProvider FileSystem   # free disk space per drive
+Get-PSDrive -PSProvider FileSystem   # free space; need 60+ GB today, 100+ GB later
 ```
-- If `nvidia-smi` is missing or CUDA < 12.8: the owner updates the driver
-  (NVIDIA App or nvidia.com), restarts, then continue.
-- **Disk:** need **at least 60 GB free** for today (Common Voice + IISc-MILE + checkpoints),
-  **100+ GB** once IndicVoices is added later. Pick the drive with the most space for `data/`.
-  If it is not the repo's drive, put data there and pass full paths to the scripts.
-- Python **3.12** is preferred. If missing, the owner installs it from python.org
-  (tick "Add python.exe to PATH").
+- Driver too old → owner updates it (NVIDIA App), restarts.
+- Python 3.12 missing → owner installs from python.org ("Add python.exe to PATH").
+- Choose the drive with most space for raw data, e.g. `D:\ada-data`. Below this is called `<DATA>`.
 
-### 1b. Virtual environment and packages
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1          # if blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 python -m pip install --upgrade pip
 pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 pip install -e ".[train,export,dev]"
-```
-
-### 1c. Verify
-```powershell
-python scripts/check_gpu.py
-pytest
+python scripts/check_gpu.py           # must end with "All good"; bf16 support: True
+pytest                                # 20+ tests pass
 ruff check .
 ```
-**Pass criteria:** `check_gpu.py` ends with `All good`, shows the RTX 5050, about 8 GB VRAM,
-and `bf16 support: True`. All tests pass.
+If `check_gpu.py` says a kernel did not run: uninstall torch/torchaudio and reinstall from the
+`cu128` index above. Log PyTorch version and CUDA build.
 
-**If `check_gpu.py` says a GPU kernel did not run:**
-```powershell
-pip uninstall -y torch torchaudio
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
-```
-Log the PyTorch version and CUDA build it reports.
+Also log `pip show av faster-whisper transformers datasets` versions (av must be < 19).
 
 ---
 
-## 3. Step 2: Accounts and downloads (owner does the browser parts)
+## 3. Step 2: Downloads
 
-Ask the owner to do these and wait for confirmation:
+Nothing from the cloud session is kept: it deleted all its data and models.
+**Everything below is downloaded on the laptop.**
 
-| # | What | Where | Why |
-|---|---|---|---|
-| 1 | Create a free account and download **Common Voice Scripted Speech 27.0, Tamil** | https://mozilladatacollective.com/datasets/cmu5x7cbc00dqo1071wdidlpf | Main training set (CC0, ~235 h validated) |
-| 2 | Download **IISc-MILE Tamil ASR corpus** (13 GB) | https://www.openslr.org/127/ (file `mile_tamil_asr_corpus.tar.gz`) | Clean studio speech, 531 speakers (CC BY 2.0) |
-| 3 | Create a free **Hugging Face** account and a **read** token | https://huggingface.co/settings/tokens | Needed for the gated AI4Bharat sets |
-| 4 | Open these pages while logged in and **accept the terms** (auto-approved) | https://huggingface.co/datasets/ai4bharat/Kathbath and https://huggingface.co/datasets/ai4bharat/IndicVoices | Kathbath is used on Day 2; IndicVoices later |
+### Full download list
 
-Then, in the activated venv, the owner runs (token is typed in the prompt, **not** saved in the repo):
+| What | Size | How | Login? | When |
+|---|---|---|---|---|
+| NVIDIA driver (CUDA 12.8+) | ~1 GB | NVIDIA App | no | Step 1, if too old |
+| Python 3.12 | ~30 MB | python.org | no | Step 1, if missing |
+| PyTorch + torchaudio (cu128) | ~3 GB | `pip` (Step 1) | no | Step 1 |
+| ADA's Python packages | ~1 GB | `pip install -e ".[train,export,dev]"` | no | Step 1 |
+| **IISc-MILE Tamil** (~150 h) | **13 GB** (+~17 GB extracted) | `curl.exe` loop (3a) | no | Start first, runs in background |
+| **FLEURS Tamil test** (591 clips) | 0.4 GB | `huggingface-cli download` (3b) | no | Step 2 |
+| **Common Voice 27.0 Tamil** | a few GB | browser, Mozilla Data Collective (3c) | **yes** (free) | Step 2 |
+| Stock Whisper tiny/base/small (int8, for baselines) | 40–250 MB each | automatic on first `evaluate.py` | no | Step 4 |
+| `openai/whisper-base` (training start point) | ~300 MB | automatic on first `train.py` | no | Step 5 |
+| vasista22/whisper-tamil-small (optional competitor) | ~1 GB | Python one-liner (Step 4) | no | Step 4, optional |
+| Kathbath Tamil | 21 GB | Hugging Face (accept terms today) | **yes** | **Day 2** |
+| IndicVoices Tamil | 50 GB | Hugging Face (accept terms today) | **yes** | **Day 2 or later** |
+
+Disk needed today: about **40–60 GB**. With Day 2 data: **100+ GB**.
+
+### 3a. Start the slow one first: IISc-MILE (13 GB, ~150 h)
+The OpenSLR server is slow (the cloud saw 0.1–1 MB/s) and drops connections. `curl.exe -C -`
+resumes, so loop it in a **separate PowerShell window** and keep going with other steps:
 ```powershell
-huggingface-cli login
+mkdir <DATA>\raw -Force; cd <DATA>\raw
+for ($i = 1; $i -le 50; $i++) {
+  curl.exe -L -C - -o mile_tamil_asr_corpus.tar.gz https://www.openslr.org/resources/127/mile_tamil_asr_corpus.tar.gz
+  if ($LASTEXITCODE -eq 0) { break }
+  Start-Sleep -Seconds 10
+}
+tar -tzf mile_tamil_asr_corpus.tar.gz > $null; if ($?) { "archive OK" }
+```
+(Final size should be about 13 GB. Licence CC BY 2.0: credit IISc-MILE in the model card.)
+
+### 3b. FLEURS Tamil test (0.4 GB, open, no login)
+```powershell
+huggingface-cli download google/fleurs --repo-type dataset --include "data/ta_in/test.tsv" "data/ta_in/audio/test.tar.gz" --local-dir <DATA>\raw\fleurs
+# newer versions of the tool use:  hf download ... (same arguments)
+tar -xzf <DATA>\raw\fleurs\data\ta_in\audio\test.tar.gz -C <DATA>\raw\fleurs\data\ta_in\audio
 ```
 
-### Extract the archives
-Windows 10+ has `tar` built in:
-```powershell
-mkdir D:\ada-data\raw -Force        # use the drive with the most free space
-tar -xzf <path-to-common-voice-download>.tar.gz -C D:\ada-data\raw
-tar -xzf <path-to>\mile_tamil_asr_corpus.tar.gz -C D:\ada-data\raw
-```
-Find the Common Voice **Tamil folder**: the one that contains `clips\` and `train.tsv`,
-`test.tsv`, `validated.tsv` (usually `cv-corpus-27.0-...\ta\`). Log its exact path and the
-row counts of `train.tsv` and `test.tsv`.
+### 3c. Owner does these in the browser (wait for confirmation)
+| # | What | Where |
+|---|---|---|
+| 1 | Free account; download **Common Voice Scripted Speech 27.0 – Tamil** | https://mozilladatacollective.com/datasets/cmu5x7cbc00dqo1071wdidlpf |
+| 2 | Free **Hugging Face** account + **read** token | https://huggingface.co/settings/tokens |
+| 3 | While logged in, **accept the terms** of Kathbath and IndicVoices (auto-approved; used Day 2) | https://huggingface.co/datasets/ai4bharat/Kathbath , https://huggingface.co/datasets/ai4bharat/IndicVoices |
+
+Then `huggingface-cli login` in the venv (token typed at the prompt, never saved in the repo).
+
+Extract Common Voice: `tar -xzf <download>.tar.gz -C <DATA>\raw`. Find the Tamil folder that has
+`clips\`, `train.tsv`, `test.tsv` (e.g. `cv-corpus-27.0-...\ta`). Log the path and row counts.
 
 ---
 
-## 4. Step 3: Prepare and audit Common Voice (owner's top priority)
+## 4. Step 3: Prepare and audit all three sources
 
 ```powershell
-python scripts/stt/prepare_data.py --format commonvoice --src "D:\ada-data\raw\<cv-folder>\ta" --out data/stt/cv-ta
+python scripts/stt/prepare_data.py --format fleurs --src <DATA>\raw\fleurs\data\ta_in --out data/stt/fleurs-ta
+python scripts/stt/prepare_data.py --format commonvoice --src "<DATA>\raw\<cv-folder>\ta" --out data/stt/cv-ta
+python scripts/stt/prepare_data.py --format mile --src <DATA>\raw --out data/stt/mile-ta   # after 3a finishes; extract first:
+#   tar -xzf <DATA>\raw\mile_tamil_asr_corpus.tar.gz -C <DATA>\raw
+python scripts/stt/audit_data.py --data data/stt/fleurs-ta
 python scripts/stt/audit_data.py --data data/stt/cv-ta
+python scripts/stt/audit_data.py --data data/stt/mile-ta
 ```
-`prepare_data.py` copies the clips. That takes a while and doubles the disk use for
-Common Voice; that's fine at this size.
+Expected for FLEURS (to confirm the laptop matches the cloud): 591 test clips, 2.13 h,
+127 clips with digits, 51 with Latin letters, 9 longer than 30 s.
 
-**Write the full audit summary in the log**, then look at it:
+**Paste every audit summary into the log.** How to act on it:
 
 | Audit line | What to do |
 |---|---|
-| `test_sentences_seen_in_train` > 0 | Note the number. Common Voice's official split should keep speakers apart; repeated sentences make the test score look better than it is. Add a `--dedupe-test-sentences` option to `prepare_data.py` that drops train clips whose normalized sentence appears in test, re-run, and log before/after counts. |
-| `test_speakers_seen_in_train` > 0 | Should be 0 for Common Voice. If not, log it and tell the owner. |
-| `speaking rate ... vs median` | Listen to 10 of these clips (paths are in `data/stt/cv-ta/audit_flags.csv`). If most really are wrong, drop all of them from train; log the count. |
-| `contains digits` / `Latin letters` | Count and log them, and show the owner 10 examples. **The owner decides the convention** (e.g. numbers as Tamil words vs digits). Don't change transcripts yet. |
-| `very short audio` / `longer than 30s` | Training already filters >30 s. Drop <1 s clips from train. |
-| `top_speaker_share` > 0.05 | Log it. Consider capping clips per speaker later. |
-| `unknown_duration` > 0 | `soundfile` couldn't read those mp3 headers. Log how many. If it's most of them, fix `_duration()` in `prepare_data.py` (e.g. fall back to `librosa.get_duration(path=...)`). |
+| `test_sentences_seen_in_train` > 0 | Re-run `prepare_data.py` with `--dedupe-test-sentences` (drops train clips whose sentence is in test). Log before/after. |
+| `test_speakers_seen_in_train` > 0 | Should be 0. Log it and tell the owner. |
+| `speaking rate ... vs median` | Listen to 10 of them (`audit_flags.csv`). If most are wrong, drop all from train. |
+| `contains digits` / `Latin letters` in **train** | Apply the owner's decision from section C. For "numbers as words": re-run with `--drop-digit-clips`. Latin letters: log 10 examples for the owner. |
+| `very short audio` / `longer than 30s` | Training already skips > 30 s. Re-run with `--min-seconds 1`. |
+| `top_speaker_share` > 0.05 | Log; consider capping clips per speaker later. |
+| `unknown_duration` > 0 | `soundfile` couldn't read some mp3 headers. If many, fall back to `librosa.get_duration(path=...)` in `_duration()`. |
 
-If any filtering is added, implement it **as options in `prepare_data.py`** (so it's
-reproducible), not by editing CSVs by hand. Commit the changes.
-
----
-
-## 5. Step 4: Baseline, measuring what ADA has to beat (about 30–60 min, CPU)
-
-```powershell
-python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta --limit 300 --models tiny base small
-```
-- `tiny`, `base`, `small` are stock Whisper, downloaded automatically as int8 CTranslate2.
-- The output columns are WER %, CER % and RTF (real-time factor; below 1.0 means faster
-  than real time). **Copy the table into the log** together with the CPU model and core count
-  (`Get-CimInstance Win32_Processor | Select Name, NumberOfCores`).
-- Expected rough range: stock Whisper on Tamil is weak, with WER somewhere around 35–60% or worse
-  for base. If WER is near 100% or outputs are English, check `--language ta` was passed
-  and log sample outputs.
-
-**Also measure the strongest competitor on the same clips** (useful, not required today):
-```powershell
-ct2-transformers-converter --model vasista22/whisper-tamil-small --output_dir models/vasista22-small-ct2 --quantization int8 --copy_files tokenizer.json preprocessor_config.json
-python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta --limit 300 --models models/vasista22-small-ct2
-```
-If its repo has no `tokenizer.json`, log that and skip it. Don't spend more than 20 minutes on this.
+Filters that already exist (train only; test is never changed): `--drop-digit-clips`,
+`--dedupe-test-sentences`, `--min-seconds`. Any new filter goes in as another option of
+`prepare_data.py` (reproducible), never hand-edited CSVs. Delete the output folder before re-running.
 
 ---
 
-## 6. Step 5: First training, smoke test then a short real run
+## 5. Step 4: Baseline on the laptop (CPU)
 
-### 5a. Create the whisper-base config
-Copy `configs/stt/whisper-small-8gb.yaml` to `configs/stt/whisper-base-8gb.yaml` and change:
-```yaml
-base_model: openai/whisper-base
-data_dir: data/stt/cv-ta
-output_dir: models/ada-stt-base
-per_device_train_batch_size: 16
-gradient_accumulation_steps: 1
-learning_rate: 2.5e-5        # base tolerates a higher rate than small
-max_steps: 5000
+Two goals: numbers on Common Voice (cloud only did FLEURS), and **real laptop CPU speed**.
+```powershell
+Get-CimInstance Win32_Processor | Select Name, NumberOfCores, NumberOfLogicalProcessors
+python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta --limit 300 --save-dir runs/preds-cv --models base small
+python scripts/stt/evaluate.py --data data/stt/fleurs-ta/test --language ta --limit 150 --models base
 ```
-Commit the new config.
+The second command repeats the cloud's FLEURS baseline for `base` (same 150 clips); compare RTF.
 
-### 5b. Smoke test (about 5–10 min)
+Optional, strongest competitor (its repo has no `tokenizer.json`, so save it locally first):
+```powershell
+python -c "from transformers import WhisperForConditionalGeneration as M, WhisperProcessor as P; m='vasista22/whisper-tamil-small'; M.from_pretrained(m).save_pretrained('models/vasista22-hf'); P.from_pretrained(m).save_pretrained('models/vasista22-hf')"
+python scripts/stt/export_ct2.py --model models/vasista22-hf --out models/vasista22-ct2
+python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta --limit 300 --models models/vasista22-ct2
+```
+
+---
+
+## 6. Step 5: First training on the GPU
+
+### 5a. Smoke test (5–10 min)
 ```powershell
 python scripts/stt/train.py --config configs/stt/whisper-base-8gb.yaml --smoke
 ```
-**Pass criteria:** it prints a baseline WER, runs 20 steps, evaluates, saves to
-`models/ada-stt-base-smoke/final`, and prints WER before and after. Loss values appear in the output.
+`whisper-base-8gb.yaml` already points to `data/stt/cv-ta`. Pass: prints baseline WER, 20 steps,
+eval, saves `models/ada-stt-base-smoke/final`, prints WER/CER before and after.
 
-`train.py` has **never run before**. Likely issues and fixes:
+The pipeline already passed this on CPU, so what's new here is CUDA + bf16:
 
-| Symptom | Likely fix |
+| Symptom | Fix |
 |---|---|
-| Error about `processing_class` or `eval_strategy` | Installed `transformers` is older than expected. `pip install -U "transformers>=4.46"`. |
-| Audio decode error on mp3 | `pip install -U soundfile` (needs libsndfile ≥ 1.1 for mp3). Log the version. |
-| `KeyError: 'audio'` in the collator | Check that `remove_unused_columns=False` is in the training arguments. |
-| Errors about `forced_decoder_ids` / language tokens | Set language via `model.generation_config.language = "tamil"` only (already done) and make sure the tokenizer prefix tokens are set on the processor. Log the full error. |
 | CUDA out of memory | Halve `per_device_train_batch_size`, double `gradient_accumulation_steps`. |
+| bf16 error | Set `bf16: false`, `fp16: true` in the config; log it. |
+| Audio decode error on mp3 | `pip install -U soundfile` (needs libsndfile ≥ 1.1); log versions. |
 | Windows multiprocessing error | Keep `dataloader_num_workers: 0`. |
+| "missing keys ... proj_out.weight" warning | Harmless (tied weights); seen in the cloud, results unaffected. |
 
-Fix in the script, re-run, commit the fix, log it.
-
-### 5c. Short real run (about 1–2 h; owner decides whether to start it today)
+### 5b. Real run (Common Voice only, about 1–3 h; owner decides whether to start)
 ```powershell
 python scripts/stt/train.py --config configs/stt/whisper-base-8gb.yaml
-tensorboard --logdir models/ada-stt-base     # in a second terminal, open http://localhost:6006
+tensorboard --logdir models/ada-stt-base       # second terminal → http://localhost:6006
 ```
-- Log: steps per second, GPU memory used (`nvidia-smi`), GPU temperature, eval WER/CER at each `eval_steps`.
-- If WER on eval stops improving for 2 evaluations in a row, it's fine to stop (Ctrl+C).
-  The best checkpoint is kept (`load_best_model_at_end`).
-- **Stop if the GPU stays above ~87 °C** and tell the owner (cooling pad, lower batch size).
+Log: steps/s, GPU memory (`nvidia-smi`), temperature, eval WER/CER per `eval_steps`.
+Stop early if eval WER doesn't improve twice in a row (best checkpoint is kept).
+**Stop if the GPU stays above ~87 °C** and tell the owner.
 
-### 5d. If the real run finishes: export and compare on CPU
+### 5c. Export and compare on CPU
 ```powershell
 python scripts/stt/export_ct2.py --model models/ada-stt-base/final --out models/ada-stt-base-ct2
 python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta --limit 300 --models base models/ada-stt-base-ct2
+python scripts/stt/evaluate.py --data data/stt/fleurs-ta/test --language ta --limit 150 --models models/ada-stt-base-ct2
+python scripts/stt/evaluate.py --data data/stt/fleurs-ta/test --language ta --limit 150 --exclude-digits --models base models/ada-stt-base-ct2
 ```
-Log both rows. This is ADA's first real result.
+These rows are ADA's first real results. Put them in the log next to the table in section B.
 
 ---
 
-## 7. Step 6 (only if time remains): add IISc-MILE
-
-Its layout (from the OpenSLR page): `train/` and `test/`, each with `audio_files/` (16 kHz WAV)
-and `trans_files/` (UTF-8 `.txt`, one per audio file, same base name).
-
-Add `--format mile` to `scripts/stt/prepare_data.py`:
-- Read `train/` and `test/` separately (keep the official split).
-- Match `audio_files/X.wav` with `trans_files/X.txt`.
-- Speaker ID: check if the file names contain one (log a few examples); if so, put it in the
-  `speaker` column.
-- Add a small test with two fake files in `tests/`.
-
-Then:
-```powershell
-python scripts/stt/prepare_data.py --format mile --src "D:\ada-data\raw\<mile-folder>" --out data/stt/mile-ta
-python scripts/stt/audit_data.py --data data/stt/mile-ta
-```
-Log the audit. **Do not merge datasets for training yet.** That's Day 2, together with Kathbath.
-
----
-
-## 8. End of day: wrap-up
+## 7. End of day
 
 1. `pytest` and `ruff check .` pass.
-2. Commit code changes and `logs/DAY1_LOG.md` (the log is small text; commit it).
-3. `git push`.
-4. Write a short **"Summary for the owner"** at the top of the log:
-   what worked, the baseline table, first training result (if any), open problems,
-   and decisions the owner must make (e.g. number convention).
+2. Commit code changes and `logs/DAY1_LOG.md`; `git push`.
+3. Write **"Summary for the owner"** at the top of the log: what worked, results tables,
+   open problems, decisions needed.
 
-### Done = all of these are true
+### Done = all true
 - [ ] `check_gpu.py` says `All good`
-- [ ] Common Voice Tamil prepared and audited; audit summary in the log
-- [ ] Baseline WER/CER/RTF for stock tiny/base/small in the log
-- [ ] Smoke test passes (and any `train.py` bugs fixed and committed)
+- [ ] FLEURS + Common Voice prepared and audited (IISc-MILE too if the download finished)
+- [ ] Number decision made (section C)
+- [ ] Laptop CPU baseline on Common Voice in the log
+- [ ] GPU smoke test passes
 - [ ] Log committed and pushed
 
-Stretch: real run finished + exported + compared; IISc-MILE prepared and audited.
+Stretch: real run + export + comparison.
+
+---
+
+## 8. Day 2 preview (don't start today)
+
+- Kathbath converter (`--format hfparquet`): inspect parquet column names on one file first.
+  Keep its test-known / test-unknown and noisy sets as test-only.
+- Combine Common Voice + IISc-MILE + Kathbath (~570 h), keeping each source's test set separate.
+- Full whisper-base run; compare with vasista22 and the 74M conformer on the same clips.
 
 ---
 
@@ -278,48 +327,39 @@ Stretch: real run finished + exported + compared; IISc-MILE prepared and audited
 
 ## Machine
 - GPU / driver / CUDA (nvidia-smi):
-- CPU / cores:
+- CPU / cores / threads:
 - RAM:
-- Free disk (drive used for data):
-- Python / PyTorch / CUDA build / transformers / datasets / faster-whisper versions:
+- Free disk (data drive):
+- Versions: Python / PyTorch + CUDA build / transformers / datasets / faster-whisper / av / ctranslate2:
 
 ## Step 1: setup
 - [time] command → result
 - check_gpu.py output:
 
 ## Step 2: downloads
-- Common Voice version, path, train.tsv rows, test.tsv rows:
-- IISc-MILE path, size:
-- HF login: yes/no; Kathbath/IndicVoices terms accepted: yes/no
+- IISc-MILE: start time, finish time, final size, archive OK?
+- FLEURS test: path
+- Common Voice: version, path, train.tsv rows, test.tsv rows
+- HF login: yes/no; Kathbath + IndicVoices terms accepted: yes/no
 
-## Step 3: Common Voice audit
-(paste the full audit summary)
-- Decisions taken / pending:
+## Step 3: audits
+### FLEURS
+### Common Voice
+### IISc-MILE
+- Decisions (incl. number convention):
 
-## Step 4: baseline (CPU, N clips)
-| model | WER % | CER % | RTF |
-|---|---|---|---|
+## Step 4: baseline (laptop CPU)
+| data | model | clips | WER % | CER % | RTF |
+|---|---|---|---|---|---|
 
 ## Step 5: training
-- Config used:
-- Smoke test result:
+- Config:
+- Smoke test:
 - Bugs found and fixes (commit hashes):
 - Real run: steps, time, best eval WER/CER, GPU memory, temperature:
-
-## Step 6: IISc-MILE
-(audit summary)
+- Exported size:
+- Comparison rows:
 
 ## Problems / questions for the owner
 -
 ```
-
----
-
-## 10. Day 2 preview (don't start today)
-
-- Write a Kathbath converter (`--format hfparquet`): first inspect the parquet column
-  names on one file, then convert. Keep its *test-known/test-unknown* and noisy sets as test-only.
-- Apply the owner's number/English-word convention to all sources.
-- Combine Common Voice + Kathbath + IISc-MILE (~570 h) into one training set, keeping
-  each source's test set separate so results can be reported per source.
-- Full whisper-base training run; compare with the competitors on FLEURS test.

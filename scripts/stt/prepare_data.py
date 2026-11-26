@@ -35,7 +35,10 @@ import argparse
 import csv
 import random
 import shutil
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 Row = tuple[Path, str, str]  # (audio path, transcript, speaker id or "")
 
@@ -118,6 +121,12 @@ def _find_split_dir(root: Path, split: str) -> Path | None:
     return None
 
 
+def _mile_speaker(stem: str) -> str:
+    """IISc-MILE names files <SOURCE>_<SPEAKER>_<UTTERANCE>, e.g. MILE_0000252_0000170."""
+    parts = stem.split("_")
+    return "_".join(parts[:2]) if len(parts) >= 3 else ""
+
+
 def from_mile(src: Path) -> dict[str, list[Row]]:
     splits: dict[str, list[Row]] = {}
     for split in ("train", "test"):
@@ -128,7 +137,7 @@ def from_mile(src: Path) -> dict[str, list[Row]]:
         for wav in sorted((folder / "audio_files").glob("*.wav")):
             txt = folder / "trans_files" / f"{wav.stem}.txt"
             if txt.exists():
-                rows.append((wav, txt.read_text(encoding="utf-8").strip(), ""))
+                rows.append((wav, txt.read_text(encoding="utf-8").strip(), _mile_speaker(wav.stem)))
         splits[split] = rows
     if not splits:
         raise SystemExit(f"No train/ or test/ with audio_files/ and trans_files/ under {src}.")
@@ -163,6 +172,30 @@ def from_csv(src: Path, test_fraction: float, seed: int) -> dict[str, list[Row]]
     return {"test": test, "train": train}
 
 
+def apply_filters(splits: dict[str, list[Row]], drop_digit_clips: bool,
+                  dedupe_test_sentences: bool, min_seconds: float) -> dict[str, list[Row]]:
+    """Quality filters. They only ever touch train; test stays as published."""
+    if "train" not in splits:
+        return splits
+    from ada.text import normalize
+
+    train = splits["train"]
+    before = len(train)
+    if drop_digit_clips:
+        train = [r for r in train if not any(ch.isdigit() for ch in r[1])]
+    if dedupe_test_sentences and "test" in splits:
+        test_sentences = {normalize(r[1]) for r in splits["test"]}
+        train = [r for r in train if normalize(r[1]) not in test_sentences]
+    if min_seconds > 0:
+        def long_enough(row: Row) -> bool:
+            d = _duration(row[0])
+            return not d or float(d) >= min_seconds  # unknown duration: keep
+        train = [r for r in train if long_enough(r)]
+    if len(train) != before:
+        print(f"Filters removed {before - len(train)} of {before} train clips.")
+    return {**splits, "train": train}
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--format", required=True, choices=["commonvoice", "fleurs", "mile", "csv"])
@@ -172,6 +205,13 @@ def main() -> None:
     p.add_argument("--max-train", type=int, default=None, help="cap rows, useful for a quick smoke test")
     p.add_argument("--max-test", type=int, default=None)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--drop-digit-clips", action="store_true",
+                   help="train only: drop clips whose transcript contains digits "
+                        "(for the 'numbers as Tamil words' convention)")
+    p.add_argument("--dedupe-test-sentences", action="store_true",
+                   help="train only: drop clips whose sentence also appears in test")
+    p.add_argument("--min-seconds", type=float, default=0.0,
+                   help="train only: drop clips shorter than this (needs readable durations)")
     args = p.parse_args()
 
     if args.format == "commonvoice":
@@ -183,6 +223,8 @@ def main() -> None:
     else:
         splits = from_csv(args.src, args.test_fraction, args.seed)
 
+    splits = apply_filters(splits, args.drop_digit_clips, args.dedupe_test_sentences,
+                           args.min_seconds)
     caps = {"train": args.max_train, "test": args.max_test}
     counts = {name: _write_split(rows, args.out / name, caps.get(name))
               for name, rows in splits.items()}
