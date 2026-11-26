@@ -12,12 +12,20 @@ Run scripts/stt/audit_data.py on the output before training.
 Supported inputs:
   --format commonvoice : an extracted Mozilla Common Voice language folder
                          (contains clips/ and train.tsv, test.tsv, ...)
+  --format fleurs      : a Google FLEURS language folder, e.g. data/ta_in/
+                         (contains train/dev/test .tsv and audio/<split>/*.wav;
+                         splits whose files are missing are skipped)
+  --format mile        : IISc-MILE Tamil ASR corpus (OpenSLR 127): a folder containing
+                         train/ and test/, each with audio_files/*.wav and
+                         trans_files/*.txt (same base names). Official split kept.
   --format csv         : your own data, a CSV with columns `path,text`
                          and optionally `speaker` (paths relative to the CSV);
                          split into train/test here, keeping each speaker in one split
 
 Examples:
   python scripts/stt/prepare_data.py --format commonvoice --src D:/cv/ta --out data/stt/cv-ta
+  python scripts/stt/prepare_data.py --format fleurs --src data/fleurs/data/ta_in --out data/stt/fleurs-ta
+  python scripts/stt/prepare_data.py --format mile --src D:/raw/mile_tamil_asr_corpus --out data/stt/mile-ta
   python scripts/stt/prepare_data.py --format csv --src D:/my_audio/labels.csv --out data/stt/mine
 """
 
@@ -76,6 +84,57 @@ def from_commonvoice(src: Path) -> dict[str, list[Row]]:
     return splits
 
 
+# FLEURS .tsv files have no header. Columns:
+# id, file_name, raw_transcription, transcription, characters, num_samples, gender
+FLEURS_COLUMNS = ["id", "file_name", "raw_transcription", "transcription", "characters",
+                  "num_samples", "gender"]
+
+
+def from_fleurs(src: Path) -> dict[str, list[Row]]:
+    """FLEURS gives no speaker ids, so the speaker column stays empty.
+
+    `raw_transcription` (with punctuation and casing) is used; ADA's normalizer
+    removes punctuation before scoring, so results match the plain version.
+    """
+    splits: dict[str, list[Row]] = {}
+    for split in ("train", "test"):
+        tsv, audio_dir = src / f"{split}.tsv", src / "audio" / split
+        if not tsv.exists() or not audio_dir.exists():
+            continue
+        with open(tsv, encoding="utf-8") as f:
+            rows = csv.DictReader(f, fieldnames=FLEURS_COLUMNS, delimiter="\t",
+                                  quoting=csv.QUOTE_NONE)
+            splits[split] = [(audio_dir / r["file_name"], r["raw_transcription"], "") for r in rows]
+    if not splits:
+        raise SystemExit(f"No FLEURS split found in {src} (need <split>.tsv and audio/<split>/).")
+    return splits
+
+
+def _find_split_dir(root: Path, split: str) -> Path | None:
+    """The archive may wrap the splits in an extra folder; search a few levels down."""
+    for candidate in [root / split, *sorted(root.glob(f"*/{split}")), *sorted(root.glob(f"*/*/{split}"))]:
+        if (candidate / "audio_files").is_dir() and (candidate / "trans_files").is_dir():
+            return candidate
+    return None
+
+
+def from_mile(src: Path) -> dict[str, list[Row]]:
+    splits: dict[str, list[Row]] = {}
+    for split in ("train", "test"):
+        folder = _find_split_dir(src, split)
+        if folder is None:
+            continue
+        rows: list[Row] = []
+        for wav in sorted((folder / "audio_files").glob("*.wav")):
+            txt = folder / "trans_files" / f"{wav.stem}.txt"
+            if txt.exists():
+                rows.append((wav, txt.read_text(encoding="utf-8").strip(), ""))
+        splits[split] = rows
+    if not splits:
+        raise SystemExit(f"No train/ or test/ with audio_files/ and trans_files/ under {src}.")
+    return splits
+
+
 def from_csv(src: Path, test_fraction: float, seed: int) -> dict[str, list[Row]]:
     with open(src, encoding="utf-8") as f:
         rows = [
@@ -106,7 +165,7 @@ def from_csv(src: Path, test_fraction: float, seed: int) -> dict[str, list[Row]]
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--format", required=True, choices=["commonvoice", "csv"])
+    p.add_argument("--format", required=True, choices=["commonvoice", "fleurs", "mile", "csv"])
     p.add_argument("--src", required=True, type=Path)
     p.add_argument("--out", required=True, type=Path)
     p.add_argument("--test-fraction", type=float, default=0.1, help="csv format only")
@@ -117,12 +176,17 @@ def main() -> None:
 
     if args.format == "commonvoice":
         splits = from_commonvoice(args.src)
+    elif args.format == "fleurs":
+        splits = from_fleurs(args.src)
+    elif args.format == "mile":
+        splits = from_mile(args.src)
     else:
         splits = from_csv(args.src, args.test_fraction, args.seed)
 
-    n_train = _write_split(splits["train"], args.out / "train", args.max_train)
-    n_test = _write_split(splits["test"], args.out / "test", args.max_test)
-    print(f"Wrote {n_train} train and {n_test} test examples to {args.out}")
+    caps = {"train": args.max_train, "test": args.max_test}
+    counts = {name: _write_split(rows, args.out / name, caps.get(name))
+              for name, rows in splits.items()}
+    print(f"Wrote {counts} examples to {args.out}")
 
 
 if __name__ == "__main__":

@@ -9,11 +9,27 @@ Run:  python scripts/stt/export_ct2.py --model models/ada-stt-small/final --out 
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 COPY_FILES = ["tokenizer.json", "preprocessor_config.json", "tokenizer_config.json",
               "special_tokens_map.json", "added_tokens.json", "vocab.json", "merges.txt",
               "normalizer.json", "generation_config.json"]
+
+
+def _ensure_preprocessor_config(model_dir: Path, out_dir: Path) -> None:
+    """faster-whisper reads audio settings (e.g. number of mel bins) from
+    preprocessor_config.json. transformers >= 5 saves them inside
+    processor_config.json instead, so copy them across. Without this, models
+    that use 128 mel bins (large-v3 family) would silently get the wrong input.
+    """
+    target = out_dir / "preprocessor_config.json"
+    source = model_dir / "processor_config.json"
+    if target.exists() or not source.exists():
+        return
+    feature_extractor = json.loads(source.read_text(encoding="utf-8")).get("feature_extractor")
+    if feature_extractor:
+        target.write_text(json.dumps(feature_extractor, indent=2), encoding="utf-8")
 
 
 def main() -> None:
@@ -33,6 +49,7 @@ def main() -> None:
     TransformersConverter(str(args.model), copy_files=copy).convert(
         str(args.out), quantization=args.quantization, force=args.force
     )
+    _ensure_preprocessor_config(args.model, args.out)
     size_mb = sum(f.stat().st_size for f in args.out.rglob("*") if f.is_file()) / 1024**2
     print(f"Exported to {args.out} ({size_mb:.0f} MB, {args.quantization}).")
     print(f"Try it:  ada-stt some_audio.wav --model {args.out} --stats")

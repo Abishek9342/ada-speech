@@ -1,0 +1,26 @@
+# Pipeline check that needs NO GPU: whisper-tiny, 20 steps, run with --smoke.
+# Used in the cloud on 26 Nov 2026 (FLEURS dev 64 clips as train, 16 test clips):
+# took ~4.5 min on 4 CPU cores; WER 126.6 -> 89.2, CER -> 39.5.
+#   python scripts/stt/train.py --config configs/stt/smoke-tiny-cpu.yaml --smoke
+base_model: openai/whisper-tiny
+language: tamil
+task: transcribe
+data_dir: data/stt/smoke              # any prepared folder with train/ and test/
+output_dir: models/smoke-tiny
+per_device_train_batch_size: 4
+per_device_eval_batch_size: 4
+gradient_accumulation_steps: 1
+gradient_checkpointing: true
+bf16: false
+fp16: false
+learning_rate: 1.0e-5
+warmup_steps: 0
+max_steps: 20
+eval_steps: 10
+save_steps: 20
+save_total_limit: 1
+logging_steps: 5
+generation_max_length: 225
+max_audio_seconds: 30
+dataloader_num_workers: 0
+seed: 42

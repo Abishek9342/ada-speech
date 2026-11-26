@@ -27,6 +27,9 @@ def main() -> None:
     p.add_argument("--language", default=None, help="language code, e.g. ta, hi, en")
     p.add_argument("--device", default="cpu", choices=["cpu", "cuda"])
     p.add_argument("--limit", type=int, default=200, help="max clips (CPU eval is slow)")
+    p.add_argument("--beam-size", type=int, default=5)
+    p.add_argument("--save-dir", type=Path, default=None,
+                   help="write each model's transcripts here as <model>.csv, for error analysis")
     args = p.parse_args()
 
     with open(args.data / "metadata.csv", encoding="utf-8") as f:
@@ -40,12 +43,22 @@ def main() -> None:
         model = Transcriber(name, device=args.device, compute_type=compute_type)
         preds, audio_s, elapsed_s = [], 0.0, 0.0
         for r in rows:
-            res = model.transcribe(str(args.data / r["file_name"]), language=args.language)
+            res = model.transcribe(
+                str(args.data / r["file_name"]), language=args.language, beam_size=args.beam_size
+            )
             preds.append(res.text)
             audio_s += res.audio_seconds
             elapsed_s += res.elapsed_seconds
         rtf = elapsed_s / audio_s if audio_s else float("nan")
-        print(f"{name:45} {100 * wer(refs, preds):7.2f} {100 * cer(refs, preds):7.2f} {rtf:6.2f}")
+        print(f"{name:45} {100 * wer(refs, preds):7.2f} {100 * cer(refs, preds):7.2f} {rtf:6.2f}",
+              flush=True)
+        if args.save_dir:
+            args.save_dir.mkdir(parents=True, exist_ok=True)
+            safe = name.strip("/\\").replace("/", "__").replace("\\", "__").replace(":", "")
+            with open(args.save_dir / f"{safe}.csv", "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["file_name", "reference", "prediction"])
+                w.writerows((r["file_name"], ref, pred) for r, ref, pred in zip(rows, refs, preds))
 
 
 if __name__ == "__main__":

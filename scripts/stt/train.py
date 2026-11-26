@@ -10,6 +10,7 @@ Quick smoke test before a long run (a few minutes, catches setup errors):
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import sys
 from dataclasses import dataclass
@@ -60,7 +61,7 @@ def main() -> None:
     cfg = yaml.safe_load(args.config.read_text(encoding="utf-8"))
 
     import torch
-    from datasets import Audio, load_dataset
+    from datasets import Audio, Dataset, DatasetDict
     from transformers import (
         Seq2SeqTrainer,
         Seq2SeqTrainingArguments,
@@ -82,7 +83,19 @@ def main() -> None:
         model.config.use_cache = False  # incompatible with checkpointing during training
 
     # ---- data ---------------------------------------------------------------
-    ds = load_dataset("audiofolder", data_dir=cfg["data_dir"])
+    # Read metadata.csv directly (not the "audiofolder" loader, which breaks with some
+    # pyarrow versions). Audio is decoded lazily, batch by batch.
+    def load_split(split: str) -> Dataset:
+        folder = Path(cfg["data_dir"]) / split
+        with open(folder / "metadata.csv", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        return Dataset.from_dict({
+            "audio": [str(folder / r["file_name"]) for r in rows],
+            "transcription": [r["transcription"] for r in rows],
+            "duration": [float(r["duration"]) if r.get("duration") else None for r in rows],
+        })
+
+    ds = DatasetDict({split: load_split(split) for split in ("train", "test")})
     ds = ds.cast_column("audio", Audio(sampling_rate=SAMPLE_RATE))
     if args.smoke:
         ds["train"] = ds["train"].select(range(min(64, len(ds["train"]))))
