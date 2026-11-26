@@ -1,10 +1,32 @@
 # ADA-STT Tamil: data plan
 
-Research from web search, Nov 2026. This session could not open the dataset
-pages or download anything (Hugging Face, arXiv and OpenSLR are blocked from
-it), so **every number and licence below is from search-result summaries and
-must be confirmed on the official page before use.** Items marked ⚠️ had
-conflicting or incomplete information.
+Research from web search, Nov 2026, then partly **verified directly on
+Hugging Face and OpenSLR** (see "Verified" below; where the two disagree,
+the verified facts win). Items marked ⚠️ are still unconfirmed.
+
+## Verified (Hugging Face API / official pages, 26 Nov 2026)
+
+| Dataset | Licence (as listed) | Access | Tamil files on HF |
+|---|---|---|---|
+| FLEURS `ta_in` | CC BY 4.0 | open | train 1.6 GB, dev 0.24 GB, **test 0.41 GB** (audio) |
+| Kathbath | **CC BY 4.0** (not CC0) | gated, auto-approved after accepting terms (needs a free HF account + token) | train 20.8 GB (40 parquet files), valid 0.6 GB |
+| IndicVoices | CC BY 4.0 | gated, auto-approved | train **49.3 GB** (118 files), valid 0.5 GB |
+| Shrutilipi | **CC BY 4.0** | gated, auto-approved | train 31.7 GB (68 files) |
+| **IISc-MILE Tamil ASR (OpenSLR 127)** | CC BY 2.0 | open, 13 GB tar.gz | **~150 h read speech, 531 speakers, studio-quality USB mics, 16 kHz WAV, own train/test split** |
+
+Competitor models, from their model cards:
+
+- **rajagowthamr/tamil-conformer-transducer-74m** (CC BY 4.0): 74.1M params,
+  Conformer + RNN-T trained from scratch on ~970 h (IndicVoices ~800 h + Kathbath ~172 h),
+  210k steps. **31.6% WER / 10.5% CER on IndicVoices Tamil valid (~8 h).**
+  Custom PyTorch code, installed from GitHub; no CPU-optimised package. 17 downloads.
+- **vasista22/whisper-tamil-small** (Apache 2.0): 9.11% WER FLEURS test,
+  7.95% Common Voice 11 test; 131k downloads. Trained on IISc-MILE, ULCA,
+  Shrutilipi, **Microsoft Speech Corpus (non-commercial)** and FLEURS. Its
+  numbers are strong but partly rely on research-only data.
+
+Because WER punishes every wrong Tamil suffix as a whole wrong word, ADA
+reports **CER alongside WER** (`ada.text.cer`).
 
 ## Recommended data, by priority
 
@@ -13,9 +35,11 @@ conflicting or incomplete information.
 | Dataset | Tamil size | Licence | Notes |
 |---|---|---|---|
 | **Common Voice 27.0 Tamil** ([page](https://mozilladatacollective.com/datasets/cmu5x7cbc00dqo1071wdidlpf)) | ~425 h recorded, **~235 h validated**, 984 speakers | CC0 | Read sentences by volunteers. Download needs a free Mozilla Data Collective account. Use only `validated` clips. Older releases had the same sentence in train and test; `audit_data.py` checks this. |
-| **Kathbath Tamil** (AI4Bharat, [paper](https://arxiv.org/pdf/2208.11761), [site](https://ai4bharat.iitm.ac.in/?p=1131)) | **~185 h**, 158 speakers (116 M / 42 F), 171k-word vocabulary | CC0 for AI4Bharat's packaging; AI4Bharat does not own the raw text ⚠️ | Read speech. Comes with ready test sets: *test-unknown* (new speakers, ~3 h) and *test-known* (~5 h), plus noisy versions of both. Noisy test sets are useful for checking reliability. |
+| **Kathbath Tamil** (AI4Bharat, [paper](https://arxiv.org/pdf/2208.11761), [site](https://ai4bharat.iitm.ac.in/?p=1131), [HF](https://huggingface.co/datasets/ai4bharat/Kathbath)) | **~185 h**, 158 speakers (116 M / 42 F), 171k-word vocabulary | CC BY 4.0 on HF (gated, auto-approve) | Read speech. Comes with ready test sets: *test-unknown* (new speakers, ~3 h) and *test-known* (~5 h), plus noisy versions of both. Noisy test sets are useful for checking reliability. |
 
-Tier 1 total: **~420 hours**. That is plenty for a whisper-base fine-tune.
+| **IISc-MILE Tamil** ([OpenSLR 127](https://www.openslr.org/127/)) | **~150 h**, 531 speakers | CC BY 2.0 | Clean studio read speech, separate train/test. Many speakers, so good for generalising across voices. 13 GB. |
+
+Tier 1 total: **~570 hours**. That is plenty for a whisper-base fine-tune.
 
 ### Tier 2: add next, for real-world speech
 
@@ -28,7 +52,7 @@ Tier 1 total: **~420 hours**. That is plenty for a whisper-base fine-tune.
 
 | Dataset | Tamil size | Licence | Why careful |
 |---|---|---|---|
-| **Shrutilipi Tamil** (AI4Bharat, [site](https://ai4bharat.iitm.ac.in/?p=1129)) | ~794 h | ⚠️ AI4Bharat says CC0, AIKosh says CC BY 4.0; the All India Radio audio rights are not settled | Audio and text were *matched automatically* from radio news, so some transcripts will not fit the audio. Formal news-reading style only. Use only clips that pass `audit_data.py`. |
+| **Shrutilipi Tamil** (AI4Bharat, [site](https://ai4bharat.iitm.ac.in/?p=1129)) | ~794 h | CC BY 4.0 on HF; the All India Radio audio rights are still not settled ⚠️ | Audio and text were *matched automatically* from radio news, so some transcripts will not fit the audio. Formal news-reading style only. Use only clips that pass `audit_data.py`. |
 
 ### Test-only sets (never train on these)
 
@@ -60,12 +84,12 @@ normalization differ, so these are **not directly comparable**.
 | [bhuvanesh25/whis-tam-small](https://huggingface.co/bhuvanesh25/whis-tam-small/blob/main/README.md) | 244M | ~11.2% Common Voice 11 |
 | IndicWhisper (AI4Bharat, [Vistaar paper](https://arxiv.org/pdf/2305.15386), [repo](https://github.com/AI4Bharat/vistaar)) | — | ~24% Kathbath, ~29% Common Voice ⚠️ read from a garbled table |
 | [mahimairaja/whisper-base-tamil](https://huggingface.co/mahimairaja/whisper-base-tamil/blob/main/README.md) | 74M | ~28.2% Common Voice 13 (only 500 steps) |
-| [rajagowthamr/tamil-conformer-transducer-74m](https://huggingface.co/rajagowthamr/tamil-conformer-transducer-74m) | 74M | Not read. Trained on ~970 h (IndicVoices + Kathbath) per search summary ⚠️ **Check this first: it is the closest competitor in ADA's size class.** |
+| [rajagowthamr/tamil-conformer-transducer-74m](https://huggingface.co/rajagowthamr/tamil-conformer-transducer-74m) | 74M | **31.6% WER / 10.5% CER** on IndicVoices Tamil valid. Closest competitor in ADA's size class. |
 
 **ADA's opening:** good 244M Tamil models exist; good *small, CPU-fast,
 easy-to-install* Tamil models mostly do not. ADA-STT v0.1 targets
-**whisper-base (74M), int8 on CPU**, trained on Tier 1 data, measured on
-FLEURS + Kathbath test-unknown (clean and noisy) + Common Voice test, against
+**whisper-base (74M), int8 on CPU**, trained on Tier 1 data, measured (WER **and** CER) on
+FLEURS + Kathbath test-unknown (clean and noisy) + Common Voice test + IndicVoices valid, against
 stock Whisper and the models above, with the same normalization.
 
 ## Quality rules for ADA's data
@@ -81,7 +105,8 @@ stock Whisper and the models above, with the same normalization.
 
 ## Disk space on the laptop
 
-- Common Voice Tamil (mp3): a few GB. Kathbath Tamil: likely tens of GB ⚠️.
+- Common Voice Tamil (mp3): a few GB. Kathbath Tamil: ~21 GB. IISc-MILE: 13 GB
+  compressed. IndicVoices Tamil: ~50 GB.
 - Training no longer stores audio features (they are computed per batch), so
   extra space is only needed for checkpoints (~1–3 GB each for whisper-base/small).
 - Keep **at least 100 GB free** for Tier 1 + Tier 2.
@@ -90,6 +115,8 @@ stock Whisper and the models above, with the same normalization.
 
 1. Laptop setup (`docs/SETUP_WINDOWS.md`) and `python scripts/check_gpu.py`.
 2. Create a Mozilla Data Collective account and download **Common Voice Tamil**.
+   Create a free Hugging Face account, accept the Kathbath and IndicVoices terms,
+   and make a read token (`huggingface-cli login`).
 3. `python scripts/stt/prepare_data.py --format commonvoice --src <cv-ta folder> --out data/stt/cv-ta`
 4. `python scripts/stt/audit_data.py --data data/stt/cv-ta`, and send me the summary.
 5. Baseline: `python scripts/stt/evaluate.py --data data/stt/cv-ta/test --language ta --models tiny base small`

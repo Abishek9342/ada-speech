@@ -22,13 +22,28 @@ def normalize(text: str) -> str:
     return _WHITESPACE.sub(" ", text).strip()
 
 
-def wer(references: list[str], predictions: list[str]) -> float:
-    """Word error rate after normalization. Empty references are skipped."""
-    import jiwer
-
+def _pairs(references: list[str], predictions: list[str]) -> tuple[list[str], list[str]]:
     pairs = [(normalize(r), normalize(p)) for r, p in zip(references, predictions, strict=True)]
     pairs = [(r, p) for r, p in pairs if r]
     if not pairs:
         raise ValueError("No non-empty references to score.")
     refs, preds = zip(*pairs)
-    return jiwer.wer(list(refs), list(preds))
+    return list(refs), list(preds)
+
+
+def wer(references: list[str], predictions: list[str]) -> float:
+    """Word error rate after normalization. Empty references are skipped."""
+    import jiwer
+
+    return jiwer.wer(*_pairs(references, predictions))
+
+
+def cer(references: list[str], predictions: list[str]) -> float:
+    """Character error rate after normalization.
+
+    Report it next to WER for Tamil: words are long and agglutinative, so one
+    wrong suffix makes a whole word wrong even when the transcript is close.
+    """
+    import jiwer
+
+    return jiwer.cer(*_pairs(references, predictions))

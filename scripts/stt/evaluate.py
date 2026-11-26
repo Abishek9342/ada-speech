@@ -1,6 +1,6 @@
 """Measure what end users will actually get: accuracy AND speed on CPU.
 
-Compares one or more models on the same test set and prints WER and
+Compares one or more models on the same test set and prints WER, CER and
 real-time factor (RTF < 1.0 = faster than real time).
 
 Run:
@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from ada.stt.inference import Transcriber
-from ada.text import wer
+from ada.text import cer, wer
 
 
 def main() -> None:
@@ -35,7 +35,7 @@ def main() -> None:
     print(f"Evaluating on {len(rows)} clips from {args.data} ({args.device})\n")
 
     compute_type = "int8" if args.device == "cpu" else "float16"
-    print(f"{'model':45} {'WER %':>7} {'RTF':>6}")
+    print(f"{'model':45} {'WER %':>7} {'CER %':>7} {'RTF':>6}")
     for name in args.models:
         model = Transcriber(name, device=args.device, compute_type=compute_type)
         preds, audio_s, elapsed_s = [], 0.0, 0.0
@@ -45,7 +45,7 @@ def main() -> None:
             audio_s += res.audio_seconds
             elapsed_s += res.elapsed_seconds
         rtf = elapsed_s / audio_s if audio_s else float("nan")
-        print(f"{name:45} {100 * wer(refs, preds):7.2f} {rtf:6.2f}")
+        print(f"{name:45} {100 * wer(refs, preds):7.2f} {100 * cer(refs, preds):7.2f} {rtf:6.2f}")
 
 
 if __name__ == "__main__":

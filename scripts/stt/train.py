@@ -19,7 +19,7 @@ from typing import Any
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from ada.text import wer
+from ada.text import cer, wer
 
 SAMPLE_RATE = 16_000
 
@@ -114,7 +114,7 @@ def main() -> None:
         label_ids[label_ids == -100] = processor.tokenizer.pad_token_id
         preds = processor.batch_decode(pred.predictions, skip_special_tokens=True)
         refs = processor.batch_decode(label_ids, skip_special_tokens=True)
-        return {"wer": 100 * wer(refs, preds)}
+        return {"wer": 100 * wer(refs, preds), "cer": 100 * cer(refs, preds)}
 
     # ---- training -----------------------------------------------------------
     smoke = args.smoke

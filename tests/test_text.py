@@ -1,6 +1,6 @@
 import pytest
 
-from ada.text import normalize, wer
+from ada.text import cer, normalize, wer
 
 
 def test_normalize_strips_punctuation_and_case():
@@ -27,3 +27,10 @@ def test_wer_skips_empty_references():
 def test_wer_rejects_all_empty():
     with pytest.raises(ValueError):
         wer([""], ["x"])
+
+
+def test_cer_is_gentler_than_wer_on_suffix_errors():
+    # One wrong suffix: the whole word is wrong for WER, a single character for CER.
+    ref, hyp = ["நான் வீட்டுக்கு போனேன்"], ["நான் வீட்டுக்கு போனான்"]
+    assert wer(ref, hyp) == pytest.approx(1 / 3)
+    assert cer(ref, hyp) < 0.1
