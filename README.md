@@ -13,6 +13,8 @@ ADA does not train from scratch. It fine-tunes proven open models on data for a
 specific language or domain, then shrinks them (int8, CTranslate2) so they run
 well on ordinary laptops.
 
+> **Starting work on the laptop?** Follow [LAPTOP_DAY1_PLAN.md](LAPTOP_DAY1_PLAN.md).
+
 ## Use it (CPU, no GPU needed)
 
 ```bash
