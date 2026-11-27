@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,8 @@ name = "ada-speech"
 version = "0.0.1"
 description = "ADA: lightweight, CPU-friendly encoder-decoder Transformer models for speech-to-text, text-to-speech and text-to-text."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"  # SPDX string; the table form is deprecated in setuptools (removal Feb 2027)
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 # The base install is what END USERS get: CPU inference only, kept small on purpose.
 dependencies = [
