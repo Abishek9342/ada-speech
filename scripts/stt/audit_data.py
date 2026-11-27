@@ -44,12 +44,14 @@ def main() -> None:
             print(f"{k}: {v}")
 
     print("\n== Flags (clip may be counted under several reasons) ==")
-    reasons = Counter(re.sub(r"\d+(\.\d+)?", "N", f.reason).split(" (")[0] for f in report.flags)
+    # Count per split: pooling them hid the fact that most flags were in train.
     for split in report.stats:
         n = report.stats[split]["clips"]
-        print(f"[{split}] {n} clips")
-    for reason, count in reasons.most_common():
-        print(f"  {count:7}  {reason}")
+        reasons = Counter(re.sub(r"\d+(\.\d+)?", "N", f.reason).split(" (")[0]
+                          for f in report.flags if f.clip.split == split)
+        print(f"[{split}] {n} clips, {sum(reasons.values())} flags")
+        for reason, count in reasons.most_common():
+            print(f"  {count:7}  {reason}")
 
     out = args.data / "audit_flags.csv"
     with open(out, "w", newline="", encoding="utf-8") as f:
