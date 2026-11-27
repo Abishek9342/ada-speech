@@ -1,0 +1,196 @@
+﻿2026-11-27T16:50:30  === OVERNIGHT START (PID 3296)
+2026-11-27T16:50:39  [kb-audit] exit 0
+    == Size ==
+    train  clips=90712  hours=161.74  unknown_duration=0  median_s=6.08  speakers=122  top_speaker_share=0.064
+    dev    clips=2493  hours=4.66  unknown_duration=0  median_s=6.48  speakers=8  top_speaker_share=0.194
+    test   clips=2555  hours=5.5  unknown_duration=0  median_s=7.41  speakers=8  top_speaker_share=0.148
+    test-known clips=2770  hours=5.02  unknown_duration=0  median_s=6.2  speakers=20  top_speaker_share=0.053
+    == Train/test leakage ==
+    test_sentences_seen_in_train: 0
+    test_speakers_seen_in_train: 0
+    test_clips: 2555
+    dev_speakers_seen_in_train: 0
+    == Flags (clip may be counted under several reasons) ==
+    [train] 90712 clips, 132 flags
+          118  transcript repeated Nx in train
+           10  speaking rate N chars/s vs median N
+            4  longer than Ns
+    [dev] 2493 clips, 0 flags
+    [test] 2555 clips, 0 flags
+    [test-known] 2770 clips, 0 flags
+    Wrote 132 flags to data\stt\kb-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-27T16:50:44  [combo-combine] exit 0
+    train: 126924  cv-ta=37358  kb-ta=89566
+    excluded_test_sentences: 8  kb-ta/train=5  cv-ta/dev=3
+    dev: 14658  cv-ta=12165  kb-ta=2493
+    Wrote data\stt\combo-ta. Run audit_data.py on it before training.
+2026-11-27T16:50:55  [combo-audit] exit 0
+    == Size ==
+    train  clips=126924  hours=226.58  unknown_duration=0  median_s=6.13  speakers=144  top_speaker_share=0.039
+    dev    clips=14658  hours=24.04  unknown_duration=0  median_s=5.72  speakers=41  top_speaker_share=0.044
+    == Flags (clip may be counted under several reasons) ==
+    [train] 126924 clips, 1055 flags
+          830  contains Latin letters
+          134  transcript repeated Nx in train
+           48  speaking rate N chars/s vs median N
+           35  mostly non-Tamil letters
+            4  contains characters from another script
+            4  longer than Ns
+    [dev] 14658 clips, 25 flags
+           22  contains Latin letters
+            2  speaking rate N chars/s vs median N
+            1  contains characters from another script
+    Wrote 1080 flags to data\stt\combo-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-27T16:51:53  [combo-smoke] exit 0
+    [transformers] Passing `generation_config` together with generation-related arguments=({'suppress_tokens', 
+    'begin_suppress_tokens'}) is deprecated and will be removed in future versions. Please pass either a 
+    `generation_config` object OR all generation parameters explicitly, but not both.
+    [transformers] The attention mask is not set with a batched input, and cannot be inferred from input because pad token 
+    is same as eos token. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` 
+    to obtain reliable results.
+    train=64  dev=16 (used for validation)
+    WhisperTokenizer. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is 
+    destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this 
+    warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+    Baseline WER before fine-tuning: 94.69
+    {'loss': '0.886', 'grad_norm': '7.482', 'learning_rate': '2e-05', 'epoch': '1.25'}
+    {'loss': '0.6136', 'grad_norm': '5.693', 'learning_rate': '1.375e-05', 'epoch': '2.5'}
+    [A
+                                                  [A
+    {'eval_loss': '0.6453', 'eval_model_preparation_time': '0.002', 'eval_wer': '79.65', 'eval_cer': '24.45', 'eval_runtime': '1.682', 'eval_samples_per_second': '9.511', 'eval_steps_per_second': '0.594', 'epoch': '2.5'}
+    {'loss': '0.4834', 'grad_norm': '5.001', 'learning_rate': '7.5e-06', 'epoch': '3.75'}
+    {'loss': '0.4392', 'grad_norm': '5.889', 'learning_rate': '1.25e-06', 'epoch': '5'}
+    [A
+                                                  [A
+    {'eval_loss': '0.6181', 'eval_model_preparation_time': '0.002', 'eval_wer': '77.88', 'eval_cer': '23.04', 'eval_runtime': '1.599', 'eval_samples_per_second': '10', 'eval_steps_per_second': '0.625', 'epoch': '5'}
+    checkpoint model loaded: ['proj_out.weight'].
+    {'train_runtime': '22.04', 'train_samples_per_second': '14.52', 'train_steps_per_second': '0.907', 'train_loss': '0.6055', 'epoch': '5'}
+    WER before: 94.69  after: 77.88
+    Saved to models\ada-stt-base-combo-smoke\final. Next: scripts/stt/export_ct2.py to make it CPU-fast.
+2026-11-27T16:51:53  [run2] training started PID 29664 resume=True
+--- relaunch 5:00:50 PM: window close at 16:59:33 killed overnight + training + download; relaunching hidden
+2026-11-27T17:00:51  === OVERNIGHT START (PID 24484)
+2026-11-27T17:01:00  [kb-audit] exit 0
+    == Size ==
+    train  clips=90712  hours=161.74  unknown_duration=0  median_s=6.08  speakers=122  top_speaker_share=0.064
+    dev    clips=2493  hours=4.66  unknown_duration=0  median_s=6.48  speakers=8  top_speaker_share=0.194
+    test   clips=2555  hours=5.5  unknown_duration=0  median_s=7.41  speakers=8  top_speaker_share=0.148
+    test-known clips=2770  hours=5.02  unknown_duration=0  median_s=6.2  speakers=20  top_speaker_share=0.053
+    == Train/test leakage ==
+    test_sentences_seen_in_train: 0
+    test_speakers_seen_in_train: 0
+    test_clips: 2555
+    dev_speakers_seen_in_train: 0
+    == Flags (clip may be counted under several reasons) ==
+    [train] 90712 clips, 132 flags
+          118  transcript repeated Nx in train
+           10  speaking rate N chars/s vs median N
+            4  longer than Ns
+    [dev] 2493 clips, 0 flags
+    [test] 2555 clips, 0 flags
+    [test-known] 2770 clips, 0 flags
+    Wrote 132 flags to data\stt\kb-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-27T17:01:04  [combo-combine] exit 0
+    train: 126924  cv-ta=37358  kb-ta=89566
+    excluded_test_sentences: 8  kb-ta/train=5  cv-ta/dev=3
+    dev: 14658  cv-ta=12165  kb-ta=2493
+    Wrote data\stt\combo-ta. Run audit_data.py on it before training.
+2026-11-27T17:01:13  [combo-audit] exit 0
+    == Size ==
+    train  clips=126924  hours=226.58  unknown_duration=0  median_s=6.13  speakers=144  top_speaker_share=0.039
+    dev    clips=14658  hours=24.04  unknown_duration=0  median_s=5.72  speakers=41  top_speaker_share=0.044
+    == Flags (clip may be counted under several reasons) ==
+    [train] 126924 clips, 1055 flags
+          830  contains Latin letters
+          134  transcript repeated Nx in train
+           48  speaking rate N chars/s vs median N
+           35  mostly non-Tamil letters
+            4  contains characters from another script
+            4  longer than Ns
+    [dev] 14658 clips, 25 flags
+           22  contains Latin letters
+            2  speaking rate N chars/s vs median N
+            1  contains characters from another script
+    Wrote 1080 flags to data\stt\combo-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-27T17:01:49  [combo-smoke] exit 0
+    [transformers] Passing `generation_config` together with generation-related arguments=({'begin_suppress_tokens', 
+    'suppress_tokens'}) is deprecated and will be removed in future versions. Please pass either a `generation_config` 
+    object OR all generation parameters explicitly, but not both.
+    [transformers] The attention mask is not set with a batched input, and cannot be inferred from input because pad token 
+    is same as eos token. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` 
+    to obtain reliable results.
+    train=64  dev=16 (used for validation)
+    WhisperTokenizer. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is 
+    destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this 
+    warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+    Baseline WER before fine-tuning: 94.69
+    {'loss': '0.8869', 'grad_norm': '7.52', 'learning_rate': '2e-05', 'epoch': '1.25'}
+    {'loss': '0.6146', 'grad_norm': '5.692', 'learning_rate': '1.375e-05', 'epoch': '2.5'}
+    [A
+                                                  [A
+    {'eval_loss': '0.6436', 'eval_model_preparation_time': '0.0017', 'eval_wer': '81.42', 'eval_cer': '25.86', 'eval_runtime': '1.442', 'eval_samples_per_second': '11.1', 'eval_steps_per_second': '0.693', 'epoch': '2.5'}
+    {'loss': '0.4842', 'grad_norm': '4.99', 'learning_rate': '7.5e-06', 'epoch': '3.75'}
+    {'loss': '0.4398', 'grad_norm': '5.906', 'learning_rate': '1.25e-06', 'epoch': '5'}
+    [A
+    {'eval_loss': '0.6189', 'eval_model_preparation_time': '0.0017', 'eval_wer': '78.76', 'eval_cer': '23.74', 'eval_runtime': '1.508', 'eval_samples_per_second': '10.61', 'eval_steps_per_second': '0.663', 'epoch': '5'}
+                                                  [A
+    checkpoint model loaded: ['proj_out.weight'].
+    {'train_runtime': '18.52', 'train_samples_per_second': '17.28', 'train_steps_per_second': '1.08', 'train_loss': '0.6064', 'epoch': '5'}
+    WER before: 94.69  after: 78.76
+    Saved to models\ada-stt-base-combo-smoke\final. Next: scripts/stt/export_ct2.py to make it CPU-fast.
+2026-11-27T17:01:49  [run2] training started PID 37504 resume=True
+    Baseline WER before fine-tuning: 93.37
+    {'eval_loss': '0.2244', 'eval_model_preparation_time': '0.0018', 'eval_wer': '45.08', 'eval_cer': '9.61', 'eval_runtime': '108.1', 'eval_samples_per_second': '9.252', 'eval_steps_per_second': '0.583', 'epoch': '0.2521'}
+    {'eval_loss': '0.1861', 'eval_model_preparation_time': '0.0018', 'eval_wer': '38.47', 'eval_cer': '7.488', 'eval_runtime': '104.6', 'eval_samples_per_second': '9.558', 'eval_steps_per_second': '0.602', 'epoch': '0.5042'}
+    {'eval_loss': '0.1701', 'eval_model_preparation_time': '0.0018', 'eval_wer': '35.8', 'eval_cer': '6.766', 'eval_runtime': '106', 'eval_samples_per_second': '9.436', 'eval_steps_per_second': '0.594', 'epoch': '0.7563'}
+    {'eval_loss': '0.1586', 'eval_model_preparation_time': '0.0018', 'eval_wer': '34.44', 'eval_cer': '6.533', 'eval_runtime': '104.9', 'eval_samples_per_second': '9.532', 'eval_steps_per_second': '0.6', 'epoch': '1.008'}
+    {'eval_loss': '0.1503', 'eval_model_preparation_time': '0.0018', 'eval_wer': '32.24', 'eval_cer': '6.006', 'eval_runtime': '105.7', 'eval_samples_per_second': '9.462', 'eval_steps_per_second': '0.596', 'epoch': '1.261'}
+    {'eval_loss': '0.1471', 'eval_model_preparation_time': '0.0018', 'eval_wer': '31.35', 'eval_cer': '5.766', 'eval_runtime': '107.4', 'eval_samples_per_second': '9.314', 'eval_steps_per_second': '0.587', 'epoch': '1.513'}
+    {'eval_loss': '0.1399', 'eval_model_preparation_time': '0.0018', 'eval_wer': '30.75', 'eval_cer': '5.557', 'eval_runtime': '105.8', 'eval_samples_per_second': '9.452', 'eval_steps_per_second': '0.595', 'epoch': '1.765'}
+    {'eval_loss': '0.1358', 'eval_model_preparation_time': '0.0018', 'eval_wer': '29.83', 'eval_cer': '5.483', 'eval_runtime': '105.7', 'eval_samples_per_second': '9.463', 'eval_steps_per_second': '0.596', 'epoch': '2.017'}
+    {'eval_loss': '0.1345', 'eval_model_preparation_time': '0.0018', 'eval_wer': '29.72', 'eval_cer': '5.36', 'eval_runtime': '106.1', 'eval_samples_per_second': '9.425', 'eval_steps_per_second': '0.594', 'epoch': '2.269'}
+    {'eval_loss': '0.133', 'eval_model_preparation_time': '0.0018', 'eval_wer': '29.15', 'eval_cer': '5.287', 'eval_runtime': '105.8', 'eval_samples_per_second': '9.448', 'eval_steps_per_second': '0.595', 'epoch': '2.521'}
+    WER before: 93.37  after: 29.15
+    Saved to models\ada-stt-base-combo\final. Next: scripts/stt/export_ct2.py to make it CPU-fast.
+2026-11-27T21:54:36  [run2] training finished OK
+2026-11-27T21:54:53  [run2-export] exit 0
+    python.exe : W1127 21:54:49.864000 35824 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] 
+    NOTE: Redirects are currently not supported in Windows or MacOs.
+    At C:\ada-data\overnight.ps1:18 char:5
+    +     & $py -X utf8 @pyArgs *> $out
+    +     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        + CategoryInfo          : NotSpecified: (W1127 21:54:49....ndows or MacOs.:String) [], RemoteException
+        + FullyQualifiedErrorId : NativeCommandError
+    Exported to models\ada-stt-base-combo-ct2 (78 MB, int8).
+    Try it:  ada-stt some_audio.wav --model models\ada-stt-base-combo-ct2 --stats
+2026-11-27T22:05:27  [run2-eval-cv] exit 0
+    Evaluating on 300 clips from data\stt\cv-ta\test (cpu)
+    model                                           WER %   CER %    RTF
+    base                                            82.97   26.60   0.12
+    models/ada-stt-base-ct2                         44.66    8.47   0.11
+    models/ada-stt-base-combo-ct2                   32.99    5.49   0.11
+2026-11-27T22:19:16  [run2-eval-kb] exit 0
+    Evaluating on 300 clips from data\stt\kb-ta\test (cpu)
+    model                                           WER %   CER %    RTF
+    base                                            92.55   33.34   0.19
+    models/ada-stt-base-ct2                         67.87   16.93   0.13
+    models/ada-stt-base-combo-ct2                   33.95    6.72   0.14
+2026-11-27T22:33:25  [run2-eval-kbknown] exit 0
+    Evaluating on 300 clips from data\stt\kb-ta\test-known (cpu)
+    model                                           WER %   CER %    RTF
+    base                                            93.21   36.49   0.19
+    models/ada-stt-base-ct2                         60.64   15.29   0.13
+    models/ada-stt-base-combo-ct2                   26.03    4.77   0.13
+2026-11-27T23:09:50  [run2-eval-fleurs] exit 0
+    Evaluating on 150 clips from data\stt\fleurs-ta\test (cpu)
+    model                                           WER %   CER %    RTF
+    base                                           102.51   61.01   0.41
+    models/ada-stt-base-ct2                         55.46   18.91   0.35
+    models/ada-stt-base-combo-ct2                   38.33   14.44   0.36
+2026-11-27T23:44:54  [run2-eval-fleurs-nd] exit 0
+    Evaluating on 150 clips from data\stt\fleurs-ta\test (cpu)
+    model                                           WER %   CER %    RTF
+    base                                            98.55   54.47   0.39
+    models/ada-stt-base-ct2                         52.61   16.32   0.35
+    models/ada-stt-base-combo-ct2                   33.62   11.35   0.35
+2026-11-27T23:44:54  === RUN 2 DONE (ok=True)
