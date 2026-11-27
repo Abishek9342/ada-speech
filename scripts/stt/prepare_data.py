@@ -18,7 +18,9 @@ Supported inputs:
                          splits whose files are missing are skipped)
   --format mile        : IISc-MILE Tamil ASR corpus (OpenSLR 127): a folder containing
                          train/ and test/, each with audio_files/*.wav and
-                         trans_files/*.txt (same base names). Official split kept.
+                         trans_files/*.txt (same base names). The official test reuses
+                         train speakers, so it goes to test-known/; --holdout-speakers
+                         unseen train speakers become dev/ and test/.
   --format kathbath    : AI4Bharat Kathbath language folder from Hugging Face, e.g.
                          .../Kathbath/tamil (train-*.parquet, valid-*.parquet; FLAC inside).
                          dev/ and test/ = held-out train speakers (unseen voices);
@@ -135,7 +137,16 @@ def _mile_speaker(stem: str) -> str:
     return "_".join(parts[:2]) if len(parts) >= 3 else ""
 
 
-def from_mile(src: Path) -> dict[str, list[Row]]:
+def from_mile(src: Path, holdout_speakers: int = 16) -> dict[str, list[Row]]:
+    """IISc-MILE train/ and test/ folders.
+
+    The published test set reuses train speakers (all 430 test speakers are in train), so it
+    cannot measure new voices. Like Kathbath: it is kept as test-known/, and `holdout_speakers`
+    train speakers who never appear in the official test (closest to the median clip count)
+    are moved out and alternated into dev/ and test/.
+    """
+    import statistics
+
     splits: dict[str, list[Row]] = {}
     for split in ("train", "test"):
         folder = _find_split_dir(src, split)
@@ -149,6 +160,28 @@ def from_mile(src: Path) -> dict[str, list[Row]]:
         splits[split] = rows
     if not splits:
         raise SystemExit(f"No train/ or test/ with audio_files/ and trans_files/ under {src}.")
+    if holdout_speakers <= 0 or "train" not in splits:
+        return splits
+    official_test = splits.pop("test", [])
+    known = {r[2] for r in official_test}
+    if official_test:
+        splits["test-known"] = official_test
+    counts: dict[str, int] = {}
+    for r in splits["train"]:
+        if r[2]:
+            counts[r[2]] = counts.get(r[2], 0) + 1
+    candidates = [s for s in counts if s not in known]
+    if not candidates:
+        return splits
+    median = statistics.median(counts[s] for s in candidates)
+    held = sorted(candidates, key=lambda s: (abs(counts[s] - median), s))[:holdout_speakers]
+    split_of = {s: ("dev" if i % 2 == 0 else "test") for i, s in enumerate(held)}
+    print(f"  holding out {len(held)} speakers: " + ", ".join(f"{s}({counts[s]})" for s in held))
+    train: list[Row] = []
+    for r in splits["train"]:
+        dest = split_of.get(r[2])
+        (splits.setdefault(dest, []) if dest else train).append(r)
+    splits["train"] = train
     return splits
 
 
@@ -259,8 +292,9 @@ def apply_filters(splits: dict[str, list[Row]], drop_digit_clips: bool,
     before = len(train)
     if drop_digit_clips:
         train = [r for r in train if not any(ch.isdigit() for ch in r[1])]
-    if dedupe_test_sentences and "test" in splits:
-        test_sentences = {normalize(r[1]) for r in splits["test"]}
+    held_out = [s for s in ("dev", "test", "test-known") if s in splits]
+    if dedupe_test_sentences and held_out:
+        test_sentences = {normalize(r[1]) for s in held_out for r in splits[s]}
         train = [r for r in train if normalize(r[1]) not in test_sentences]
     if min_seconds > 0:
         def long_enough(row: Row) -> bool:
@@ -283,7 +317,7 @@ def main() -> None:
     p.add_argument("--max-test", type=int, default=None)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--holdout-speakers", type=int, default=16,
-                   help="kathbath only: train speakers moved out into dev/test (unseen voices)")
+                   help="kathbath/mile: train speakers moved out into dev/test (unseen voices)")
     p.add_argument("--drop-digit-clips", action="store_true",
                    help="train only: drop clips whose transcript contains digits "
                         "(for the 'numbers as Tamil words' convention)")
@@ -298,7 +332,7 @@ def main() -> None:
     elif args.format == "fleurs":
         splits = from_fleurs(args.src)
     elif args.format == "mile":
-        splits = from_mile(args.src)
+        splits = from_mile(args.src, args.holdout_speakers)
     elif args.format == "kathbath":
         splits = from_kathbath(args.src, args.out, args.holdout_speakers)
     else:

@@ -96,10 +96,29 @@ def test_mile_pairs_audio_with_transcripts_in_nested_folder(tmp_path):
         (root / split / "trans_files").mkdir(parents=True)
         (root / split / "trans_files" / f"MILE_{split}01_0001.txt").write_text(
             " நன்றி \n", encoding="utf-8")
-    splits = prep.from_mile(tmp_path)  # one level above: must still be found
+    splits = prep.from_mile(tmp_path, holdout_speakers=0)  # one level above: must still be found
     assert {k: [r[0].name for r in v] for k, v in splits.items()} == {
         "train": ["MILE_train01_0001.wav"], "test": ["MILE_test01_0001.wav"]}
     assert splits["train"][0][1:] == ("நன்றி", "MILE_train01")
+
+
+def test_mile_official_test_becomes_known_and_unseen_speakers_are_held_out(tmp_path):
+    root = tmp_path / "mile"
+    clips = {"train": {"MILE_0000001": 3, "MILE_0000002": 2, "MILE_0000003": 2, "MILE_0000004": 9},
+             "test": {"MILE_0000001": 1}}  # speaker 1 is in both: the published test is "known"
+    for split, speakers in clips.items():
+        (root / split / "trans_files").mkdir(parents=True)
+        for spk, n in speakers.items():
+            for i in range(n):
+                wav(root / split / "audio_files" / f"{spk}_{i:07d}.wav")
+                (root / split / "trans_files" / f"{spk}_{i:07d}.txt").write_text(
+                    f"வாக்கியம் {spk} {i}", encoding="utf-8")
+    splits = prep.from_mile(root, holdout_speakers=2)
+    assert sorted(splits) == ["dev", "test", "test-known", "train"]
+    assert {r[2] for r in splits["test-known"]} == {"MILE_0000001"}
+    held = {r[2] for r in splits["dev"]} | {r[2] for r in splits["test"]}
+    assert held == {"MILE_0000002", "MILE_0000003"}   # closest to median, never a known speaker
+    assert {r[2] for r in splits["train"]} == {"MILE_0000001", "MILE_0000004"}
 
 
 def test_write_split_records_duration(tmp_path):
@@ -137,3 +156,12 @@ def test_filters_only_touch_train(tmp_path):
                              min_seconds=1.0)
     assert [r[1] for r in out["train"]] == ["நன்றி"]
     assert out["test"] == splits["test"]
+
+
+def test_dedupe_also_covers_dev_and_test_known():
+    p = Path("x.wav")
+    splits = {"train": [(p, "ஒன்று", ""), (p, "இரண்டு", ""), (p, "மூன்று", "")],
+              "dev": [(p, "ஒன்று", "")], "test-known": [(p, "இரண்டு", "")]}
+    out = prep.apply_filters(splits, drop_digit_clips=False, dedupe_test_sentences=True,
+                             min_seconds=0)
+    assert [r[1] for r in out["train"]] == ["மூன்று"]
