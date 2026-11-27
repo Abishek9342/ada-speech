@@ -51,6 +51,38 @@ def test_commonvoice_keeps_dev_as_its_own_split(tmp_path):
     assert list(prep.from_commonvoice(tmp_path)) == ["train", "test"]
 
 
+def _kathbath_parquet(path, rows):
+    import io
+
+    pa = pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    recs = []
+    for fname, spk, text in rows:
+        buf = io.BytesIO()
+        sf.write(buf, np.zeros(16000, dtype="float32"), 16000, format="FLAC")
+        recs.append({"fname": fname, "text": text, "speaker_id": spk, "duration": 1.0,
+                     "audio_filepath": {"bytes": buf.getvalue(), "path": fname.replace(".m4a", ".flac")}})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(pa.Table.from_pylist(recs), path)
+
+
+def test_kathbath_extracts_flac_and_splits_valid_by_speaker(tmp_path):
+    src, out = tmp_path / "tamil", tmp_path / "out"
+    _kathbath_parquet(src / "train-00000-of-00001.parquet", [("a.m4a", 1, "வணக்கம்")])
+    _kathbath_parquet(src / "valid-00000-of-00001.parquet",
+                      [("b.m4a", 7, "ஒன்று"), ("c.m4a", 8, "இரண்டு"), ("d.m4a", 7, "மூன்று")])
+    splits = prep.from_kathbath(src, out)
+    assert [r[0].name for r in splits["train"]] == ["a.flac"]
+    assert (out / "train" / "a.flac").exists()
+    dev_spk = {r[2] for r in splits["dev"]}
+    test_spk = {r[2] for r in splits["test"]}
+    assert dev_spk == {"kb_7"} and test_spk == {"kb_8"}
+    assert len(splits["dev"]) == 2
+    counts = {s: prep._write_split(rows, out / s, None) for s, rows in splits.items()}
+    assert counts == {"train": 1, "dev": 2, "test": 1}
+
+
 def test_mile_pairs_audio_with_transcripts_in_nested_folder(tmp_path):
     root = tmp_path / "mile_tamil_asr_corpus"
     for split in ("train", "test"):

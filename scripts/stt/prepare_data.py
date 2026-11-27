@@ -19,6 +19,9 @@ Supported inputs:
   --format mile        : IISc-MILE Tamil ASR corpus (OpenSLR 127): a folder containing
                          train/ and test/, each with audio_files/*.wav and
                          trans_files/*.txt (same base names). Official split kept.
+  --format kathbath    : AI4Bharat Kathbath language folder from Hugging Face, e.g.
+                         .../Kathbath/tamil (train-*.parquet, valid-*.parquet; FLAC inside).
+                         valid is split by speaker into dev/ and test/.
   --format csv         : your own data, a CSV with columns `path,text`
                          and optionally `speaker` (paths relative to the CSV);
                          split into train/test here, keeping each speaker in one split
@@ -148,6 +151,47 @@ def from_mile(src: Path) -> dict[str, list[Row]]:
     return splits
 
 
+def from_kathbath(src: Path, out: Path) -> dict[str, list[Row]]:
+    """AI4Bharat Kathbath (Hugging Face parquet): train-*.parquet and valid-*.parquet.
+
+    Audio is stored inside the parquet as FLAC bytes; it is written straight into
+    <out>/<split>/ (so _write_split finds it there and does not copy it again).
+    The official valid set is split BY SPEAKER into dev and test halves (alternating
+    over sorted speaker ids), so validation and test never share a voice.
+    """
+    import pyarrow.parquet as pq
+
+    def read(pattern: str, split_of) -> dict[str, list[Row]]:
+        rows: dict[str, list[Row]] = {}
+        files = sorted(src.glob(pattern))
+        for n, path in enumerate(files, 1):
+            print(f"  {path.name} ({n}/{len(files)})", flush=True)
+            pf = pq.ParquetFile(path)
+            for batch in pf.iter_batches(batch_size=256):
+                for r in batch.to_pylist():
+                    speaker = f"kb_{r['speaker_id']}"
+                    split = split_of(speaker)
+                    audio = r["audio_filepath"]
+                    name = Path(audio.get("path") or r["fname"]).with_suffix(".flac").name
+                    dst = out / split / name
+                    if not dst.exists():
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        dst.write_bytes(audio["bytes"])
+                    rows.setdefault(split, []).append((dst, r["text"], speaker))
+        return rows
+
+    if not list(src.glob("train-*.parquet")):
+        raise SystemExit(f"No train-*.parquet in {src} (point --src at the 'tamil' folder).")
+    splits = read("train-*.parquet", lambda spk: "train")
+    valid_speakers = sorted({
+        f"kb_{s}" for p in src.glob("valid-*.parquet")
+        for s in pq.read_table(p, columns=["speaker_id"]).column("speaker_id").to_pylist()
+    })
+    dev_speakers = set(valid_speakers[0::2])
+    splits.update(read("valid-*.parquet", lambda spk: "dev" if spk in dev_speakers else "test"))
+    return splits
+
+
 def from_csv(src: Path, test_fraction: float, seed: int) -> dict[str, list[Row]]:
     with open(src, encoding="utf-8") as f:
         rows = [
@@ -202,7 +246,8 @@ def apply_filters(splits: dict[str, list[Row]], drop_digit_clips: bool,
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--format", required=True, choices=["commonvoice", "fleurs", "mile", "csv"])
+    p.add_argument("--format", required=True,
+                   choices=["commonvoice", "fleurs", "mile", "kathbath", "csv"])
     p.add_argument("--src", required=True, type=Path)
     p.add_argument("--out", required=True, type=Path)
     p.add_argument("--test-fraction", type=float, default=0.1, help="csv format only")
@@ -224,6 +269,8 @@ def main() -> None:
         splits = from_fleurs(args.src)
     elif args.format == "mile":
         splits = from_mile(args.src)
+    elif args.format == "kathbath":
+        splits = from_kathbath(args.src, args.out)
     else:
         splits = from_csv(args.src, args.test_fraction, args.seed)
 

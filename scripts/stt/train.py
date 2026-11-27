@@ -80,6 +80,16 @@ def main() -> None:
     model.generation_config.language = cfg["language"]
     model.generation_config.task = cfg["task"]
     model.generation_config.forced_decoder_ids = None
+    # SpecAugment (built into Whisper, off by default): masks random time steps / frequency bands
+    # of the log-mel input during training only. Helps most when there are few speakers.
+    if cfg.get("spec_augment"):
+        sa = cfg["spec_augment"]
+        model.config.apply_spec_augment = True
+        model.config.mask_time_prob = sa.get("mask_time_prob", 0.05)
+        model.config.mask_time_length = sa.get("mask_time_length", 10)
+        model.config.mask_feature_prob = sa.get("mask_feature_prob", 0.0)
+        model.config.mask_feature_length = sa.get("mask_feature_length", 10)
+        print(f"SpecAugment on: {sa}")
     if cfg["gradient_checkpointing"]:
         model.config.use_cache = False  # incompatible with checkpointing during training
 
