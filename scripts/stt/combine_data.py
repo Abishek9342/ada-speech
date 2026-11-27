@@ -8,7 +8,9 @@ as usual. Test sets are NOT combined: evaluate each source's own test/ folder, s
 stays comparable with published results.
 
 Options:
-  --max-per-speaker N   cap train clips per speaker (keeps one voice from dominating; seeded)
+  --max-per-speaker N        cap train clips per speaker (keeps one voice from dominating; seeded)
+  --exclude-sentences-of D.. drop train/dev clips whose normalized sentence appears in any of these
+                             test folders (sentences can be shared ACROSS corpora)
 """
 
 from __future__ import annotations
@@ -17,7 +19,10 @@ import argparse
 import csv
 import os
 import random
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 
 def read_rows(folder: Path) -> list[dict[str, str]]:
@@ -39,7 +44,11 @@ def cap_per_speaker(rows: list[dict[str, str]], cap: int, seed: int) -> list[dic
     return kept
 
 
-def combine(sources: list[Path], out: Path, max_per_speaker: int | None, seed: int) -> dict:
+def combine(sources: list[Path], out: Path, max_per_speaker: int | None, seed: int,
+            exclude_from: list[Path] | None = None) -> dict:
+    from ada.text import normalize
+
+    banned = {normalize(r["transcription"]) for d in (exclude_from or []) for r in read_rows(d)}
     counts: dict[str, dict[str, int]] = {}
     for split in ("train", "dev"):
         dst = out / split
@@ -49,6 +58,12 @@ def combine(sources: list[Path], out: Path, max_per_speaker: int | None, seed: i
             if not (folder / "metadata.csv").exists():
                 continue
             rows = read_rows(folder)
+            if banned:
+                before = len(rows)
+                rows = [r for r in rows if normalize(r["transcription"]) not in banned]
+                if len(rows) != before:
+                    counts.setdefault("excluded_test_sentences", {})[f"{src.name}/{split}"] = (
+                        before - len(rows))
             if split == "train" and max_per_speaker:
                 rows = cap_per_speaker(rows, max_per_speaker, seed)
             rel = Path(os.path.relpath(folder, dst))
@@ -73,8 +88,11 @@ def main() -> None:
     p.add_argument("--out", required=True, type=Path)
     p.add_argument("--max-per-speaker", type=int, default=None)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--exclude-sentences-of", nargs="*", type=Path, default=[])
     args = p.parse_args()
-    for split, per_src in combine(args.sources, args.out, args.max_per_speaker, args.seed).items():
+    counts = combine(args.sources, args.out, args.max_per_speaker, args.seed,
+                     args.exclude_sentences_of)
+    for split, per_src in counts.items():
         print(f"{split}: {sum(per_src.values())}  " + "  ".join(f"{k}={v}" for k, v in per_src.items()))
     print(f"Wrote {args.out}. Run audit_data.py on it before training.")
 

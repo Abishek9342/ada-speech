@@ -260,6 +260,32 @@ CPU: i7-13645HX (14C/20T), int8, beam 5, plugged in. 10:33–11:03.
   19.3, but is still well behind vasista22 (11.4 CER, 3x the size). Expected: trained on 84 h from only
   22 speakers. Day 2 data (MILE + Kathbath, ~570 h, many speakers) is the fix.
 
+## Afternoon: run 2 prep (owner: "why wait for tomorrow")
+- Checked CV `validated.tsv`: 28,341 extra clips usable, but **all from the same 22 train speakers** (every
+  other speaker is in dev/test). Not worth it; speaker diversity must come from other datasets.
+- Kathbath Tamil on HF: 40 train + 2 valid parquet files, 21.4 GB, FLAC 16 kHz mono embedded, columns
+  fname/text/audio_filepath/lang/duration/gender/speaker_id. HF speed ~11–22 MB/s (vs OpenSLR 0.6).
+  Download started ~14:55 to `C:\ada-data\raw\kathbath\tamil`.
+- Commit `7fc3919`: `--format kathbath` (valid split by speaker into dev/test), `combine_data.py` (relative
+  paths, no copy, `--max-per-speaker`), `spec_augment` config block in train.py, config
+  `whisper-base-combo-8gb.yaml` (CV + Kathbath, SpecAugment, 20k steps). 25 tests pass.
+- Kathbath download done 15:48 (42 files, 19.94 GiB). Pass 1 prep (13 min, filters removed 4):
+  train 95,758 clips / 171.9 h / **138 speakers** / top_speaker_share 0.06; only 138 train flags (124 repeated
+  transcripts, 10 speaking rate, 4 > 30 s); no digits, no Latin. **But test_speakers_seen_in_train = 10 and
+  dev_speakers_seen_in_train = 10**: Kathbath's official valid reuses train speakers. Dropping those 20 from
+  train would cost 36,376 clips / 62.2 h.
+  **Owner decided: new unseen-speaker split.** `--format kathbath --holdout-speakers 16`: the 16 train
+  speakers closest to the median clip count (alternating gender, excluding valid speakers) move to dev/test
+  (alternating); official valid kept as `test-known/` (seen voices, reported as such). Pass 2 running.
+- Plan: Kathbath prep + audit → combine → audit → smoke → 20k-step run overnight.
+- **Owner away until 2026-11-28 morning. Standing permissions given (~16:30):** auto-start run 2 if audits
+  show 0 leakage; commit + push code/logs (never data/models/tokens); delete junk (corrupt MILE .bad only
+  after the new archive checks OK, smoke model folders, old checkpoints of finished runs); lid close = do
+  nothing on AC. If MILE finishes: prep + audit, and if clean start run 3 (CV + Kathbath + MILE) after run 2.
+  Cap train clips per speaker at **5,000**. If GPU ≥ 87 °C for 3+ min: pause, cool below 65 °C, resume
+  from the last checkpoint. MILE joins if it is
+  ready before the run starts; otherwise it goes into run 3.
+
 ## Problems / questions for the owner
 - See "Decisions needed" in the summary. Done-list: check_gpu ✓, FLEURS + CV prepared/audited ✓ (MILE
   pending download), number decision ✓, laptop CPU baseline ✓, GPU smoke test ✓, real run + export +

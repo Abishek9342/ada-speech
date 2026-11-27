@@ -58,29 +58,34 @@ def _kathbath_parquet(path, rows):
     import pyarrow.parquet as pq
 
     recs = []
-    for fname, spk, text in rows:
+    for fname, spk, text, *gender in rows:
         buf = io.BytesIO()
         sf.write(buf, np.zeros(16000, dtype="float32"), 16000, format="FLAC")
         recs.append({"fname": fname, "text": text, "speaker_id": spk, "duration": 1.0,
+                     "gender": gender[0] if gender else "Female",
                      "audio_filepath": {"bytes": buf.getvalue(), "path": fname.replace(".m4a", ".flac")}})
     path.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(pa.Table.from_pylist(recs), path)
 
 
-def test_kathbath_extracts_flac_and_splits_valid_by_speaker(tmp_path):
+def test_kathbath_holds_out_unseen_speakers_and_keeps_valid_as_known(tmp_path):
     src, out = tmp_path / "tamil", tmp_path / "out"
-    _kathbath_parquet(src / "train-00000-of-00001.parquet", [("a.m4a", 1, "வணக்கம்")])
-    _kathbath_parquet(src / "valid-00000-of-00001.parquet",
-                      [("b.m4a", 7, "ஒன்று"), ("c.m4a", 8, "இரண்டு"), ("d.m4a", 7, "மூன்று")])
-    splits = prep.from_kathbath(src, out)
-    assert [r[0].name for r in splits["train"]] == ["a.flac"]
-    assert (out / "train" / "a.flac").exists()
-    dev_spk = {r[2] for r in splits["dev"]}
-    test_spk = {r[2] for r in splits["test"]}
-    assert dev_spk == {"kb_7"} and test_spk == {"kb_8"}
-    assert len(splits["dev"]) == 2
+    # speaker 1 is also in valid (must stay in train); 2 (F) and 3 (M) are the held-out candidates
+    _kathbath_parquet(src / "train-00000-of-00001.parquet", [
+        ("a.m4a", 1, "ஒன்று", "Female"), ("b.m4a", 1, "இரண்டு", "Female"),
+        ("c.m4a", 2, "மூன்று", "Female"), ("d.m4a", 3, "நான்கு", "Male"),
+        ("e.m4a", 4, "ஐந்து", "Male"), ("f.m4a", 4, "ஆறு", "Male"), ("g.m4a", 4, "ஏழு", "Male"),
+    ])
+    _kathbath_parquet(src / "valid-00000-of-00001.parquet", [("v.m4a", 1, "எட்டு", "Female")])
+    splits = prep.from_kathbath(src, out, holdout_speakers=2)
+    held = {r[2] for r in splits["dev"]} | {r[2] for r in splits["test"]}
+    assert held == {"kb_2", "kb_3"}                       # one female + one male, closest to median
+    assert not held & {r[2] for r in splits["train"]}     # unseen voices
+    assert {r[2] for r in splits["train"]} == {"kb_1", "kb_4"}
+    assert [r[0].name for r in splits["test-known"]] == ["v.flac"]
+    assert (out / "test-known" / "v.flac").exists()
     counts = {s: prep._write_split(rows, out / s, None) for s, rows in splits.items()}
-    assert counts == {"train": 1, "dev": 2, "test": 1}
+    assert counts == {"train": 5, "dev": 1, "test": 1, "test-known": 1}
 
 
 def test_mile_pairs_audio_with_transcripts_in_nested_folder(tmp_path):

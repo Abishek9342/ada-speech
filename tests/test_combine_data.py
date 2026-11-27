@@ -32,6 +32,16 @@ def test_combine_paths_resolve_and_test_is_not_combined(tmp_path):
             assert (out / split / r["file_name"]).exists()
 
 
+def test_exclude_sentences_from_other_test_sets(tmp_path):
+    _meta(tmp_path / "a" / "train", [("1.mp3", "வணக்கம் உலகம்", "2.0", "s1"),
+                                     ("2.mp3", "நன்றி", "2.0", "s1")])
+    _meta(tmp_path / "other" / "test", [("9.wav", "வணக்கம், உலகம்!", "2.0", "s9")])
+    counts = comb.combine([tmp_path / "a"], tmp_path / "combo", None, 0, [tmp_path / "other" / "test"])
+    assert counts["train"] == {"a": 1}
+    assert counts["excluded_test_sentences"] == {"a/train": 1}
+    assert [r["transcription"] for r in comb.read_rows(tmp_path / "combo" / "train")] == ["நன்றி"]
+
+
 def test_cap_per_speaker():
     rows = [{"speaker": "big"} for _ in range(10)] + [{"speaker": "small"}]
     kept = comb.cap_per_speaker(rows, 3, 0)

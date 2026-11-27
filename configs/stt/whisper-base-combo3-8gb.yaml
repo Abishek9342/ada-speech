@@ -1,0 +1,37 @@
+# ADA-STT base, run 3: run 2 + IISc-MILE (CV + Kathbath + MILE), otherwise identical to run 2.
+# Data: python scripts/stt/combine_data.py --sources data/stt/cv-ta data/stt/kb-ta data/stt/mile-ta --out data/stt/combo3-ta
+# Same base model, batch and learning rate as run 1 (whisper-base-8gb.yaml), so the gain is from data,
+# SpecAugment and length.
+
+base_model: openai/whisper-base
+language: tamil
+task: transcribe
+data_dir: data/stt/combo3-ta
+output_dir: models/ada-stt-base-combo3
+eval_max_samples: 1000
+
+spec_augment:
+  mask_time_prob: 0.05       # Whisper's default when enabled
+  mask_time_length: 10
+  mask_feature_prob: 0.05
+  mask_feature_length: 10
+
+per_device_train_batch_size: 16
+per_device_eval_batch_size: 16
+gradient_accumulation_steps: 1
+gradient_checkpointing: true
+bf16: true
+fp16: false
+
+learning_rate: 2.5e-5
+warmup_steps: 1000
+max_steps: 20000             # ~5-6 h on the RTX 5050 at ~1.1 steps/s, evals included
+eval_steps: 2000
+save_steps: 2000
+save_total_limit: 2
+logging_steps: 50
+generation_max_length: 225
+max_audio_seconds: 30
+dataloader_num_workers: 0
+seed: 42
+

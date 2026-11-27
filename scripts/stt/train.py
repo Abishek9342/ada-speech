@@ -58,6 +58,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--smoke", action="store_true", help="tiny run to check the pipeline works")
+    parser.add_argument("--resume", action="store_true",
+                        help="continue from the latest checkpoint in output_dir (after a crash or "
+                             "a cooling pause); skips the baseline eval")
     args = parser.parse_args()
     cfg = yaml.safe_load(args.config.read_text(encoding="utf-8"))
 
@@ -188,15 +191,24 @@ def main() -> None:
         processing_class=processor,
     )
 
-    baseline = trainer.evaluate()
-    print(f"Baseline WER before fine-tuning: {baseline['eval_wer']:.2f}")
-    trainer.train()
+    has_ckpt = any(Path(training_args.output_dir).glob("checkpoint-*"))
+    if args.resume and has_ckpt:
+        print("Resuming from the latest checkpoint (baseline eval skipped).")
+        baseline = None
+        trainer.train(resume_from_checkpoint=True)
+    else:
+        if args.resume:
+            print("No checkpoint found; starting from scratch.")
+        baseline = trainer.evaluate()
+        print(f"Baseline WER before fine-tuning: {baseline['eval_wer']:.2f}")
+        trainer.train()
 
     final_dir = Path(training_args.output_dir) / "final"
     trainer.save_model(final_dir)
     processor.save_pretrained(final_dir)
     final = trainer.evaluate()
-    print(f"WER before: {baseline['eval_wer']:.2f}  after: {final['eval_wer']:.2f}")
+    before = f"{baseline['eval_wer']:.2f}" if baseline else "n/a (resumed)"
+    print(f"WER before: {before}  after: {final['eval_wer']:.2f}")
     print(f"Saved to {final_dir}. Next: scripts/stt/export_ct2.py to make it CPU-fast.")
 
 

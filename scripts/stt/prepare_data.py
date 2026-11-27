@@ -21,7 +21,8 @@ Supported inputs:
                          trans_files/*.txt (same base names). Official split kept.
   --format kathbath    : AI4Bharat Kathbath language folder from Hugging Face, e.g.
                          .../Kathbath/tamil (train-*.parquet, valid-*.parquet; FLAC inside).
-                         valid is split by speaker into dev/ and test/.
+                         dev/ and test/ = held-out train speakers (unseen voices);
+                         official valid (seen speakers) goes to test-known/.
   --format csv         : your own data, a CSV with columns `path,text`
                          and optionally `speaker` (paths relative to the CSV);
                          split into train/test here, keeping each speaker in one split
@@ -151,15 +152,29 @@ def from_mile(src: Path) -> dict[str, list[Row]]:
     return splits
 
 
-def from_kathbath(src: Path, out: Path) -> dict[str, list[Row]]:
+def from_kathbath(src: Path, out: Path, holdout_speakers: int = 16) -> dict[str, list[Row]]:
     """AI4Bharat Kathbath (Hugging Face parquet): train-*.parquet and valid-*.parquet.
 
     Audio is stored inside the parquet as FLAC bytes; it is written straight into
     <out>/<split>/ (so _write_split finds it there and does not copy it again).
-    The official valid set is split BY SPEAKER into dev and test halves (alternating
-    over sorted speaker ids), so validation and test never share a voice.
+    Kathbath's official valid set reuses speakers from its train set, so it cannot measure
+    new voices. Instead, `holdout_speakers` train speakers are moved out (those closest to the
+    median clip count, alternating gender, never one of the valid speakers) and alternated into
+    dev/ and test/. The official valid set is kept as test-known/ (seen speakers, report as such).
     """
+    import statistics
+
     import pyarrow.parquet as pq
+
+    def speakers_of(pattern: str) -> dict[str, tuple[int, str]]:
+        """speaker -> (clip count, gender), from two small columns only (no audio read)."""
+        stats: dict[str, list] = {}
+        for p in sorted(src.glob(pattern)):
+            t = pq.read_table(p, columns=["speaker_id", "gender"])
+            for spk, g in zip(t.column("speaker_id").to_pylist(), t.column("gender").to_pylist()):
+                s = stats.setdefault(f"kb_{spk}", [0, g or ""])
+                s[0] += 1
+        return {k: (v[0], v[1]) for k, v in stats.items()}
 
     def read(pattern: str, split_of) -> dict[str, list[Row]]:
         rows: dict[str, list[Row]] = {}
@@ -182,13 +197,26 @@ def from_kathbath(src: Path, out: Path) -> dict[str, list[Row]]:
 
     if not list(src.glob("train-*.parquet")):
         raise SystemExit(f"No train-*.parquet in {src} (point --src at the 'tamil' folder).")
-    splits = read("train-*.parquet", lambda spk: "train")
-    valid_speakers = sorted({
-        f"kb_{s}" for p in src.glob("valid-*.parquet")
-        for s in pq.read_table(p, columns=["speaker_id"]).column("speaker_id").to_pylist()
-    })
-    dev_speakers = set(valid_speakers[0::2])
-    splits.update(read("valid-*.parquet", lambda spk: "dev" if spk in dev_speakers else "test"))
+    train_spk = speakers_of("train-*.parquet")
+    valid_spk = set(speakers_of("valid-*.parquet"))
+    median = statistics.median(c for c, _ in train_spk.values())
+    candidates = sorted((s for s in train_spk if s not in valid_spk),
+                        key=lambda s: (abs(train_spk[s][0] - median), s))
+    by_gender: dict[str, list[str]] = {}
+    for s in candidates:
+        by_gender.setdefault(train_spk[s][1], []).append(s)
+    held: list[str] = []
+    queues = [by_gender[g] for g in sorted(by_gender)]
+    while len(held) < holdout_speakers and any(queues):
+        for q in queues:
+            if q and len(held) < holdout_speakers:
+                held.append(q.pop(0))
+    split_of_held = {s: ("dev" if i % 2 == 0 else "test") for i, s in enumerate(held)}
+    print(f"  holding out {len(held)} speakers: "
+          + ", ".join(f"{s}({train_spk[s][1][:1]},{train_spk[s][0]})" for s in held))
+
+    splits = read("train-*.parquet", lambda spk: split_of_held.get(spk, "train"))
+    splits.update(read("valid-*.parquet", lambda spk: "test-known"))
     return splits
 
 
@@ -254,6 +282,8 @@ def main() -> None:
     p.add_argument("--max-train", type=int, default=None, help="cap rows, useful for a quick smoke test")
     p.add_argument("--max-test", type=int, default=None)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--holdout-speakers", type=int, default=16,
+                   help="kathbath only: train speakers moved out into dev/test (unseen voices)")
     p.add_argument("--drop-digit-clips", action="store_true",
                    help="train only: drop clips whose transcript contains digits "
                         "(for the 'numbers as Tamil words' convention)")
@@ -270,13 +300,14 @@ def main() -> None:
     elif args.format == "mile":
         splits = from_mile(args.src)
     elif args.format == "kathbath":
-        splits = from_kathbath(args.src, args.out)
+        splits = from_kathbath(args.src, args.out, args.holdout_speakers)
     else:
         splits = from_csv(args.src, args.test_fraction, args.seed)
 
     splits = apply_filters(splits, args.drop_digit_clips, args.dedupe_test_sentences,
                            args.min_seconds)
-    caps = {"train": args.max_train, "dev": args.max_test, "test": args.max_test}
+    caps = {"train": args.max_train, "dev": args.max_test, "test": args.max_test,
+            "test-known": args.max_test}
     counts = {name: _write_split(rows, args.out / name, caps.get(name))
               for name, rows in splits.items()}
     print(f"Wrote {counts} examples to {args.out}")
