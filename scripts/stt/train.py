@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -136,6 +137,10 @@ def main() -> None:
 
     # ---- training -----------------------------------------------------------
     smoke = args.smoke
+    # transformers 5 dropped `logging_dir` and writes TensorBoard logs to ./runs unless this is set,
+    # so `tensorboard --logdir <output_dir>` found nothing. A value set by the user wins.
+    os.environ.setdefault("TENSORBOARD_LOGGING_DIR",
+                          str(Path(cfg["output_dir"] + ("-smoke" if smoke else "")) / "runs"))
     training_args = Seq2SeqTrainingArguments(
         output_dir=cfg["output_dir"] + ("-smoke" if smoke else ""),
         per_device_train_batch_size=cfg["per_device_train_batch_size"],
