@@ -4,6 +4,7 @@ Output layout (Hugging Face "audiofolder"):
 
     data/stt/<name>/
         train/metadata.csv   + audio files
+        dev/metadata.csv     + audio files   (only when the source has one, e.g. Common Voice)
         test/metadata.csv    + audio files
 
 metadata.csv columns: file_name, transcription, duration (seconds), speaker
@@ -81,7 +82,10 @@ def _read_tsv(path: Path) -> list[dict[str, str]]:
 def from_commonvoice(src: Path) -> dict[str, list[Row]]:
     clips = src / "clips"
     splits = {}
-    for split, tsv in (("train", "train.tsv"), ("test", "test.tsv")):
+    # dev is kept as its own split: train.py validates on it, so test is only used at the end.
+    for split, tsv in (("train", "train.tsv"), ("dev", "dev.tsv"), ("test", "test.tsv")):
+        if split == "dev" and not (src / tsv).exists():
+            continue
         rows = _read_tsv(src / tsv)
         splits[split] = [(clips / r["path"], r["sentence"], r.get("client_id", "")) for r in rows]
     return splits
@@ -225,7 +229,7 @@ def main() -> None:
 
     splits = apply_filters(splits, args.drop_digit_clips, args.dedupe_test_sentences,
                            args.min_seconds)
-    caps = {"train": args.max_train, "test": args.max_test}
+    caps = {"train": args.max_train, "dev": args.max_test, "test": args.max_test}
     counts = {name: _write_split(rows, args.out / name, caps.get(name))
               for name, rows in splits.items()}
     print(f"Wrote {counts} examples to {args.out}")

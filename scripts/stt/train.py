@@ -95,11 +95,16 @@ def main() -> None:
             "duration": [float(r["duration"]) if r.get("duration") else None for r in rows],
         })
 
-    ds = DatasetDict({split: load_split(split) for split in ("train", "test")})
+    # Validate on dev when the data has one, so the best checkpoint is never picked on test.
+    eval_split = "dev" if (Path(cfg["data_dir"]) / "dev" / "metadata.csv").exists() else "test"
+    ds = DatasetDict({split: load_split(split) for split in ("train", eval_split)})
     ds = ds.cast_column("audio", Audio(sampling_rate=SAMPLE_RATE))
+    # Generating on a full dev/test set every eval_steps is slow; a fixed random sample is enough.
+    eval_max = 16 if args.smoke else cfg.get("eval_max_samples")
+    if eval_max and len(ds[eval_split]) > eval_max:
+        ds[eval_split] = ds[eval_split].shuffle(seed=cfg["seed"]).select(range(eval_max))
     if args.smoke:
         ds["train"] = ds["train"].select(range(min(64, len(ds["train"]))))
-        ds["test"] = ds["test"].select(range(min(16, len(ds["test"]))))
 
     max_seconds = cfg["max_audio_seconds"]
     max_label_tokens = cfg["generation_max_length"]
@@ -119,7 +124,7 @@ def main() -> None:
     else:
         print("WARNING: no duration column; clips over 30 s are not filtered. "
               "Re-run prepare_data.py to add it.")
-    print(f"train={len(ds['train'])}  test={len(ds['test'])}")
+    print(f"train={len(ds['train'])}  {eval_split}={len(ds[eval_split])} (used for validation)")
 
     # ---- metrics ------------------------------------------------------------
     def compute_metrics(pred) -> dict:
@@ -162,7 +167,7 @@ def main() -> None:
         model=model,
         args=training_args,
         train_dataset=ds["train"],
-        eval_dataset=ds["test"],
+        eval_dataset=ds[eval_split],
         data_collator=SpeechCollator(processor, model.config.decoder_start_token_id),
         compute_metrics=compute_metrics,
         processing_class=processor,

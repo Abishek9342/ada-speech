@@ -139,4 +139,7 @@ def audit(clips_by_split: dict[str, list[Clip]], min_s: float = 1.0, max_s: floa
             "test_speakers_seen_in_train": len({c.speaker for c in test if c.speaker} & train_spk),
             "test_clips": len(test),
         }
+        if "dev" in clips_by_split:  # validation speakers must also be new, or eval WER flatters
+            dev_spk = {c.speaker for c in clips_by_split["dev"] if c.speaker}
+            report.leaks["dev_speakers_seen_in_train"] = len(dev_spk & train_spk)
     return report

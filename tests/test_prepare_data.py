@@ -37,6 +37,20 @@ def test_fleurs_reads_headerless_tsv_and_skips_missing_splits(tmp_path):
     assert path.name == "1.wav" and text == "வணக்கம், உலகம்!" and speaker == ""
 
 
+def test_commonvoice_keeps_dev_as_its_own_split(tmp_path):
+    header = "client_id\tpath\tsentence\n"
+    for split in ("train", "dev", "test"):
+        wav(tmp_path / "clips" / f"{split}.mp3")
+        (tmp_path / f"{split}.tsv").write_text(
+            header + f"spk_{split}\t{split}.mp3\tவணக்கம்\n", encoding="utf-8"
+        )
+    splits = prep.from_commonvoice(tmp_path)
+    assert list(splits) == ["train", "dev", "test"]
+    assert splits["dev"][0][2] == "spk_dev"
+    (tmp_path / "dev.tsv").unlink()
+    assert list(prep.from_commonvoice(tmp_path)) == ["train", "test"]
+
+
 def test_mile_pairs_audio_with_transcripts_in_nested_folder(tmp_path):
     root = tmp_path / "mile_tamil_asr_corpus"
     for split in ("train", "test"):

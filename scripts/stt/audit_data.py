@@ -31,7 +31,7 @@ def main() -> None:
     p.add_argument("--max-seconds", type=float, default=30.0)
     args = p.parse_args()
 
-    clips = {s: load_split(args.data / s, s) for s in ("train", "test") if (args.data / s).exists()}
+    clips = {s: load_split(args.data / s, s) for s in ("train", "dev", "test") if (args.data / s).exists()}
     report = audit(clips, max_s=args.max_seconds)
 
     print("== Size ==")

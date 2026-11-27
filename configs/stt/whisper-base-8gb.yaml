@@ -7,7 +7,11 @@ task: transcribe
 data_dir: data/stt/cv-ta             # output of scripts/stt/prepare_data.py
 output_dir: models/ada-stt-base
 
-# Memory: effective batch = 8 x 2 = 16. If you hit "CUDA out of memory",
+# Validation during training uses the dev split (if prepare_data.py wrote one), else test,
+# limited to this many clips (fixed random sample) so each eval takes minutes, not an hour.
+eval_max_samples: 1000
+
+# Memory: effective batch = 16 x 1 = 16. If you hit "CUDA out of memory",
 # halve per_device_train_batch_size and double gradient_accumulation_steps.
 per_device_train_batch_size: 16
 per_device_eval_batch_size: 16
