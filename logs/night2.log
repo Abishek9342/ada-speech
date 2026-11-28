@@ -56,3 +56,30 @@
 2026-11-28T15:23:28    combo4-audit: LEAK CHECK: PASS
 2026-11-28T15:23:28  GPU free (no train.py running)
 2026-11-28T15:23:28  [run4] training started PID 26280 (configs/stt/whisper-base-clean4-safe-8gb.yaml)
+    dev: per-source sample cv2-ta=400, kb2-ta=400, mile2-ta=400
+    Baseline WER before fine-tuning: 94.59  CER: 36.10
+    {'eval_loss': '0.234', 'eval_model_preparation_time': '0.0018', 'eval_wer': '46.92', 'eval_cer': '10.4', 'eval_runtime': '135.9', 'eval_samples_per_second': '8.832', 'eval_steps_per_second': '0.552', 'epoch': '0.1586'}
+    {'eval_loss': '0.1937', 'eval_model_preparation_time': '0.0018', 'eval_wer': '40.24', 'eval_cer': '8.515', 'eval_runtime': '133.6', 'eval_samples_per_second': '8.984', 'eval_steps_per_second': '0.562', 'epoch': '0.3171'}
+    {'eval_loss': '0.175', 'eval_model_preparation_time': '0.0018', 'eval_wer': '37.67', 'eval_cer': '7.952', 'eval_runtime': '133.1', 'eval_samples_per_second': '9.017', 'eval_steps_per_second': '0.564', 'epoch': '0.4757'}
+    {'eval_loss': '0.1632', 'eval_model_preparation_time': '0.0018', 'eval_wer': '35.43', 'eval_cer': '7.276', 'eval_runtime': '135.5', 'eval_samples_per_second': '8.858', 'eval_steps_per_second': '0.554', 'epoch': '0.6343'}
+    {'eval_loss': '0.1533', 'eval_model_preparation_time': '0.0018', 'eval_wer': '34.29', 'eval_cer': '7.023', 'eval_runtime': '139.7', 'eval_samples_per_second': '8.592', 'eval_steps_per_second': '0.537', 'epoch': '0.7928'}
+    {'eval_loss': '0.1473', 'eval_model_preparation_time': '0.0018', 'eval_wer': '32.51', 'eval_cer': '6.531', 'eval_runtime': '139', 'eval_samples_per_second': '8.634', 'eval_steps_per_second': '0.54', 'epoch': '0.9514'}
+    {'eval_loss': '0.1443', 'eval_model_preparation_time': '0.0018', 'eval_wer': '31.5', 'eval_cer': '6.326', 'eval_runtime': '136.4', 'eval_samples_per_second': '8.8', 'eval_steps_per_second': '0.55', 'epoch': '1.11'}
+    {'eval_loss': '0.1413', 'eval_model_preparation_time': '0.0018', 'eval_wer': '31.24', 'eval_cer': '6.253', 'eval_runtime': '134.2', 'eval_samples_per_second': '8.94', 'eval_steps_per_second': '0.559', 'epoch': '1.268'}
+    {'eval_loss': '0.1374', 'eval_model_preparation_time': '0.0018', 'eval_wer': '30.52', 'eval_cer': '6.144', 'eval_runtime': '138.8', 'eval_samples_per_second': '8.646', 'eval_steps_per_second': '0.54', 'epoch': '1.427'}
+    {'eval_loss': '0.1343', 'eval_model_preparation_time': '0.0018', 'eval_wer': '30.1', 'eval_cer': '5.991', 'eval_runtime': '133.7', 'eval_samples_per_second': '8.975', 'eval_steps_per_second': '0.561', 'epoch': '1.585'}
+    {'eval_loss': '0.1329', 'eval_model_preparation_time': '0.0018', 'eval_wer': '29.79', 'eval_cer': '5.938', 'eval_runtime': '137.7', 'eval_samples_per_second': '8.717', 'eval_steps_per_second': '0.545', 'epoch': '1.744'}
+    {'eval_loss': '0.1321', 'eval_model_preparation_time': '0.0018', 'eval_wer': '29.61', 'eval_cer': '5.923', 'eval_runtime': '132.7', 'eval_samples_per_second': '9.041', 'eval_steps_per_second': '0.565', 'epoch': '1.903'}
+    WER before: 94.59  after: 29.61  CER after: 5.92  (best checkpoint: models/ada-stt-base-clean4\checkpoint-6000)
+    Saved to models\ada-stt-base-clean4\final. Next: scripts/stt/export_ct2.py to make it CPU-fast.
+2026-11-28T21:20:35  [run4] training finished OK
+2026-11-28T21:20:59  [run4-export] exit 0
+    python.exe : W1128 21:20:55.349000 7216 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] 
+    NOTE: Redirects are currently not supported in Windows or MacOs.
+    At C:\ada-data\night2.ps1:31 char:5
+    +     & $py -X utf8 @pyArgs *> $out
+    +     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        + CategoryInfo          : NotSpecified: (W1128 21:20:55....ndows or MacOs.:String) [], RemoteException
+        + FullyQualifiedErrorId : NativeCommandError
+    Exported to models\ada-stt-base-clean4-ct2 (78 MB, int8).
+    Try it:  ada-stt some_audio.wav --model models\ada-stt-base-clean4-ct2 --stats
