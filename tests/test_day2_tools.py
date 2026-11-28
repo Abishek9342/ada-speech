@@ -57,3 +57,15 @@ def test_per_source_dev_sample():
     out = tr.sample_per_source(rows, 10, seed=0)
     assert tr.count_sources(out) == {"cv2-ta": 10, "kb2-ta": 5}
     assert tr.source_of("x.flac") == ""
+
+
+def test_results_table_last_line_wins_and_marks_no_vad():
+    rt = load("results_table")
+    lines = [
+        {"set": "evals/cv_test_500.txt", "model": "m1", "rtf": 0.1, "wer": 40, "cer": 9, "cer_ci": [8, 10]},
+        {"set": "evals/cv_test_500.txt", "model": "m1", "rtf": 0.1, "wer": 30, "cer": 6, "cer_ci": [5, 7]},
+        {"set": "evals/nonspeech.txt", "model": "m1", "rtf": 1.0, "hallucination_pct": 100.0, "vad": False},
+    ]
+    table = rt.build(lines)
+    assert "**6.00**" in table and "**9.00**" not in table
+    assert "nonspeech (no VAD)" in table and "100.0% halluc" in table
