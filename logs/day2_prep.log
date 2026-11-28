@@ -1,0 +1,188 @@
+﻿2026-11-28T10:38:22  === DAY 2 PREP START (PID 44028)
+2026-11-28T10:51:16  [cv2-prep] exit 0
+    Dedupe removed 3 dev clips whose sentence is in test.
+    Filters removed 19 of 46529 train clips.
+    Wrote {'train': 46510, 'dev': 12165, 'test': 12241} examples to data\stt\cv2-ta
+2026-11-28T10:51:24  [cv2-audit] exit 0
+    == Size ==
+    train  clips=46510  hours=83.9  unknown_duration=0  median_s=6.41  speakers=22  top_speaker_share=0.261
+    dev    clips=12165  hours=19.34  unknown_duration=0  median_s=5.44  speakers=33  top_speaker_share=0.053
+    test   clips=12241  hours=19.4  unknown_duration=0  median_s=5.3  speakers=596  top_speaker_share=0.021
+    == Train/test leakage ==
+    dev_sentences_seen_in_train: 0
+    dev_speakers_seen_in_train: 0
+    test_sentences_seen_in_train: 0
+    test_speakers_seen_in_train: 0
+    test_sentences_seen_in_dev: 0
+    test_speakers_seen_in_dev: 0
+    test_clips: 12241
+    LEAK CHECK: PASS
+    == Flags (clip may be counted under several reasons) ==
+    [train] 46510 clips, 961 flags
+          879  contains Latin letters
+           36  mostly non-Tamil letters
+           21  speaking rate N chars/s vs median N
+           20  transcript repeated Nx in train
+            5  contains characters from another script
+    [dev] 12165 clips, 25 flags
+           22  contains Latin letters
+            2  speaking rate N chars/s vs median N
+            1  contains characters from another script
+    [test] 12241 clips, 82 flags
+           53  contains Latin letters
+           26  speaking rate N chars/s vs median N
+            2  mostly non-Tamil letters
+            1  contains characters from another script
+    Wrote 1068 flags to data\stt\cv2-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-28T11:17:46  [kb2-prep] exit 0
+      train-00004-of-00040.parquet (5/40)
+      train-00005-of-00040.parquet (6/40)
+      train-00006-of-00040.parquet (7/40)
+      train-00007-of-00040.parquet (8/40)
+      train-00008-of-00040.parquet (9/40)
+      train-00009-of-00040.parquet (10/40)
+      train-00010-of-00040.parquet (11/40)
+      train-00011-of-00040.parquet (12/40)
+      train-00012-of-00040.parquet (13/40)
+      train-00013-of-00040.parquet (14/40)
+      train-00014-of-00040.parquet (15/40)
+      train-00015-of-00040.parquet (16/40)
+      train-00016-of-00040.parquet (17/40)
+      train-00017-of-00040.parquet (18/40)
+      train-00018-of-00040.parquet (19/40)
+      train-00019-of-00040.parquet (20/40)
+      train-00020-of-00040.parquet (21/40)
+      train-00021-of-00040.parquet (22/40)
+      train-00022-of-00040.parquet (23/40)
+      train-00023-of-00040.parquet (24/40)
+      train-00024-of-00040.parquet (25/40)
+      train-00025-of-00040.parquet (26/40)
+      train-00026-of-00040.parquet (27/40)
+      train-00027-of-00040.parquet (28/40)
+      train-00028-of-00040.parquet (29/40)
+      train-00029-of-00040.parquet (30/40)
+      train-00030-of-00040.parquet (31/40)
+      train-00031-of-00040.parquet (32/40)
+      train-00032-of-00040.parquet (33/40)
+      train-00033-of-00040.parquet (34/40)
+      train-00034-of-00040.parquet (35/40)
+      train-00035-of-00040.parquet (36/40)
+      train-00036-of-00040.parquet (37/40)
+      train-00037-of-00040.parquet (38/40)
+      train-00038-of-00040.parquet (39/40)
+      train-00039-of-00040.parquet (40/40)
+      valid-00000-of-00002.parquet (1/2)
+      valid-00001-of-00002.parquet (2/2)
+    Filters removed 9 of 90714 train clips.
+    Wrote {'train': 90705, 'test': 2626, 'dev': 2422, 'test-known': 2770} examples to data\stt\kb2-ta
+2026-11-28T11:18:01  [kb2-audit] exit 0
+    == Size ==
+    train  clips=90705  hours=161.73  unknown_duration=0  median_s=6.08  speakers=122  top_speaker_share=0.064
+    dev    clips=2422  hours=4.71  unknown_duration=0  median_s=6.71  speakers=8  top_speaker_share=0.173
+    test   clips=2626  hours=5.45  unknown_duration=0  median_s=7.01  speakers=8  top_speaker_share=0.184
+    test-known clips=2770  hours=5.02  unknown_duration=0  median_s=6.2  speakers=20  top_speaker_share=0.053
+    == Train/test leakage ==
+    dev_sentences_seen_in_train: 0
+    dev_speakers_seen_in_train: 0
+    test_sentences_seen_in_train: 0
+    test_speakers_seen_in_train: 0
+    test-known_sentences_seen_in_train: 0
+    test-known_speakers_seen_in_train: 20  (expected)
+    test_sentences_seen_in_dev: 0
+    test_speakers_seen_in_dev: 0
+    test-known_sentences_seen_in_dev: 0
+    test-known_speakers_seen_in_dev: 0
+    test_clips: 2626
+    LEAK CHECK: PASS
+    == Flags (clip may be counted under several reasons) ==
+    [train] 90705 clips, 132 flags
+          118  transcript repeated Nx in train
+           10  speaking rate N chars/s vs median N
+            4  longer than Ns
+    [dev] 2422 clips, 0 flags
+    [test] 2626 clips, 0 flags
+    [test-known] 2770 clips, 0 flags
+    Wrote 132 flags to data\stt\kb2-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-28T11:41:03  [mile2-prep] exit 0
+      holding out 16 speakers: ISTL_0000203(109), ISTL_0000207(109), ISTL_0000217(109), ISTL_0000225(109), ISTL_0000229(109), ISTL_0000253(109), ISTL_0000304(109), ISTL_0000408(109), ISTL_0000411(109), ISTL_0000433(109), ISTL_0000546(109), ISTL_0000568(109), ISTL_0000572(109), ISTL_0000580(109), ISTL_0000601(109), ISTL_0000610(109)
+    Dedupe removed 3 dev clips whose sentence is in test.
+    Filters removed 380 of 75570 train clips.
+    Wrote {'train': 75190, 'test-known': 12087, 'dev': 869, 'test': 872} examples to data\stt\mile2-ta
+2026-11-28T11:41:14  [mile2-audit] exit 0
+    == Size ==
+    train  clips=75190  hours=127.84  unknown_duration=0  median_s=5.22  speakers=622  top_speaker_share=0.003
+    dev    clips=869  hours=2.47  unknown_duration=0  median_s=9.47  speakers=8  top_speaker_share=0.125
+    test   clips=872  hours=2.43  unknown_duration=0  median_s=9.5  speakers=8  top_speaker_share=0.125
+    test-known clips=12087  hours=16.81  unknown_duration=0  median_s=4.57  speakers=430  top_speaker_share=0.005
+    == Train/test leakage ==
+    dev_sentences_seen_in_train: 0
+    dev_speakers_seen_in_train: 0
+    test_sentences_seen_in_train: 0
+    test_speakers_seen_in_train: 0
+    test-known_sentences_seen_in_train: 0
+    test-known_speakers_seen_in_train: 430  (expected)
+    test_sentences_seen_in_dev: 0
+    test_speakers_seen_in_dev: 0
+    test-known_sentences_seen_in_dev: 0
+    test-known_speakers_seen_in_dev: 0
+    test_clips: 872
+    LEAK CHECK: PASS
+    == Flags (clip may be counted under several reasons) ==
+    [train] 75190 clips, 1018 flags
+          989  transcript repeated Nx in train
+           28  longer than Ns
+            1  speaking rate N chars/s vs median N
+    [dev] 869 clips, 0 flags
+    [test] 872 clips, 0 flags
+    [test-known] 12087 clips, 7 flags
+            5  very short audio
+            2  longer than Ns
+    Wrote 1025 flags to data\stt\mile2-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-28T11:41:30  [combo4-combine] exit 0
+    excluded_test_sentences: 20  cv2-ta/dev=1  kb2-ta/train=10  mile2-ta/train=9
+    dev: 15455  cv2-ta=12164  kb2-ta=2422  mile2-ta=869
+    train: 202085  cv2-ta=37355  kb2-ta=89555  mile2-ta=75175
+    excluded_dev_sentences: 8  kb2-ta=2  mile2-ta=6
+    Wrote data\stt\combo4-ta. Run audit_data.py on it before training.
+2026-11-28T11:42:00  [combo4-audit] exit 0
+    dev_sentences_seen_in_train: 0
+    dev_speakers_seen_in_train: 0
+    cv2-ta/test_sentences_seen_in_train: 0
+    cv2-ta/test_speakers_seen_in_train: 0
+    kb2-ta/test_sentences_seen_in_train: 0
+    kb2-ta/test_speakers_seen_in_train: 0
+    kb2-ta/test-known_sentences_seen_in_train: 0
+    kb2-ta/test-known_speakers_seen_in_train: 20  (expected)
+    mile2-ta/test_sentences_seen_in_train: 0
+    mile2-ta/test_speakers_seen_in_train: 0
+    mile2-ta/test-known_sentences_seen_in_train: 0
+    mile2-ta/test-known_speakers_seen_in_train: 430  (expected)
+    fleurs-ta/test_sentences_seen_in_train: 0
+    fleurs-ta/test_speakers_seen_in_train: 0
+    cv2-ta/test_sentences_seen_in_dev: 0
+    cv2-ta/test_speakers_seen_in_dev: 0
+    kb2-ta/test_sentences_seen_in_dev: 0
+    kb2-ta/test_speakers_seen_in_dev: 0
+    kb2-ta/test-known_sentences_seen_in_dev: 0
+    kb2-ta/test-known_speakers_seen_in_dev: 0
+    mile2-ta/test_sentences_seen_in_dev: 0
+    mile2-ta/test_speakers_seen_in_dev: 0
+    mile2-ta/test-known_sentences_seen_in_dev: 0
+    mile2-ta/test-known_speakers_seen_in_dev: 0
+    fleurs-ta/test_sentences_seen_in_dev: 0
+    fleurs-ta/test_speakers_seen_in_dev: 0
+    LEAK CHECK: PASS
+    == Flags (clip may be counted under several reasons) ==
+    [train] 202085 clips, 2225 flags
+         1282  transcript repeated Nx in train
+          826  contains Latin letters
+           46  speaking rate N chars/s vs median N
+           34  mostly non-Tamil letters
+           32  longer than Ns
+            5  contains characters from another script
+    [dev] 15455 clips, 25 flags
+           22  contains Latin letters
+            2  speaking rate N chars/s vs median N
+            1  contains characters from another script
+    Wrote 2250 flags to data\stt\combo4-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-28T11:42:00  === DAY 2 PREP DONE

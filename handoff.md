@@ -1,5 +1,28 @@
 # Handoff: ada-speech
 
+## 2026-11-28 (laptop, Day 2)
+
+**What changed**
+- Full log in `logs/DAY2_LOG.md`; plan and owner decisions in `logs/DAY2_PLAN.md`.
+- Review file fixes (`142c717`): speaker-balanced splits, label cleaning (no punctuation), leakage report on
+  every held-out set, CER checkpoint selection, run manifest, fixed eval lists with CI, non-speech set.
+- Leak gate fixes (`6a0ca97`): dev deduped against test, combined train deduped against combined dev.
+- Re-prepared data `cv2-ta`, `kb2-ta`, `mile2-ta`, `combo4-ta` (202,085 train clips), all audits PASS.
+
+**What was checked**
+- 42 tests pass, ruff clean. Offline loading of all eval models verified.
+- VAD finding: run 2 hallucinates on 100% of non-speech clips with VAD off (0% with VAD on).
+
+**What is live**
+- Nothing published. Running unattended: run 3 finish + export + evals, then `night2.ps1` (run 4 + all
+  fixed-list evals), `push_loop.ps1` pushes every 30 min from 16:00 until 2026-11-29 12:00.
+
+**Open / next**
+- Read `logs/day2_results.md`; check run 4 against the release bar (in `DAY2_PLAN.md`).
+- Remove the Scheduled Task "ADA night2 resume" (`Unregister-ScheduledTask -TaskName 'ADA night2 resume'`).
+- Run 5: noise / non-speech augmentation (hallucination without VAD).
+- Windows Update paused until 2026-12-05; resume it after the runs.
+
 ## 2026-11-27 (laptop, Day 1)
 
 **What changed**
