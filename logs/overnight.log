@@ -318,3 +318,22 @@
     base                                           100.84   54.44    48.19- 60.51   0.42
     models/ada-stt-base-combo-ct2                   38.17   14.49    11.35- 17.82   0.40
     models/ada-stt-base-combo3-ct2                  35.14   13.87    10.71- 17.16   0.40
+2026-11-28T14:57:02  [run3-eval-fleurs-nd] exit 0
+    Evaluating on 150 clips from data\stt\fleurs-ta\test (cpu)
+    model                                           WER %   CER %      CER 95% CI    RTF
+    base                                            98.30   53.53    47.91- 59.09   0.43
+    models/ada-stt-base-combo-ct2                   33.74   11.27     8.51- 14.60   0.38
+    models/ada-stt-base-combo3-ct2                  30.71   10.56     7.81- 13.92   0.39
+2026-11-28T15:22:04  [run3-eval-mile] exit 0
+    Evaluating on 300 clips from data\stt\mile-ta\test (cpu)
+    model                                           WER %   CER %      CER 95% CI    RTF
+    base                                            82.64   29.98    27.44- 32.69   0.16
+    models/ada-stt-base-combo-ct2                   32.53    6.05     5.56-  6.60   0.14
+    models/ada-stt-base-combo3-ct2                  23.39    3.74     3.40-  4.11   0.15
+2026-11-28T15:22:04  === RUN 3 DONE (ok=True)
+2026-11-28T15:22:04  deleted models\ada-stt-base-smoke
+2026-11-28T15:22:04  deleted models\ada-stt-base-combo-smoke
+2026-11-28T15:22:05  deleted run-1 checkpoint-4500
+2026-11-28T15:22:05  deleted run-1 checkpoint-5000
+2026-11-28T15:22:05  C: free 55.3 GB
+2026-11-28T15:22:05  === OVERNIGHT ALL DONE
