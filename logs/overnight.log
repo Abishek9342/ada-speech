@@ -300,3 +300,15 @@
     base                                            82.93   26.70    25.42- 28.05   0.14
     models/ada-stt-base-combo-ct2                   32.99    5.50     4.96-  6.03   0.11
     models/ada-stt-base-combo3-ct2                  32.37    5.22     4.71-  5.76   0.11
+2026-11-28T13:23:47  [run3-eval-kb] exit 0
+    Evaluating on 300 clips from data\stt\kb-ta\test (cpu)
+    model                                           WER %   CER %      CER 95% CI    RTF
+    base                                            92.83   33.47    31.88- 35.21   0.22
+    models/ada-stt-base-combo-ct2                   33.76    6.71     6.23-  7.23   0.15
+    models/ada-stt-base-combo3-ct2                  32.32    6.16     5.66-  6.68   0.15
+2026-11-28T13:38:43  [run3-eval-kbknown] exit 0
+    Evaluating on 300 clips from data\stt\kb-ta\test-known (cpu)
+    model                                           WER %   CER %      CER 95% CI    RTF
+    base                                            93.45   36.87    34.93- 38.80   0.20
+    models/ada-stt-base-combo-ct2                   26.15    4.77     4.34-  5.25   0.13
+    models/ada-stt-base-combo3-ct2                  26.24    4.89     4.43-  5.34   0.14
