@@ -219,3 +219,57 @@
             2  longer than Ns
     Wrote 1213 flags to data\stt\mile-ta\audit_flags.csv. Listen to a sample before deciding.
 2026-11-28T00:25:43    LEAK: test_speakers_seen_in_train: 430
+2026-11-28T00:25:47  Needs owner decision: MILE prepare + audit (leakage must be 0) (pushed logs/NEEDS_OWNER.md, push exit 0; checking GitHub every 5 min)
+2026-11-28T00:30:48  new commit on GitHub (01c2fd73854ac9e99d24aca5ec4fd984c00ef14b), pulled (exit 0)
+2026-11-28T00:30:51  retrying 'MILE prepare + audit (leakage must be 0)'
+2026-11-28T01:08:09  [mile-prep] exit 0
+      holding out 16 speakers: ISTL_0000203(109), ISTL_0000207(109), ISTL_0000217(109), ISTL_0000225(109), ISTL_0000229(109), ISTL_0000253(109), ISTL_0000304(109), ISTL_0000408(109), ISTL_0000411(109), ISTL_0000433(109), ISTL_0000546(109), ISTL_0000568(109), ISTL_0000572(109), ISTL_0000580(109), ISTL_0000601(109), ISTL_0000610(109)
+    Filters removed 380 of 75570 train clips.
+    Wrote {'train': 75190, 'test-known': 12087, 'dev': 872, 'test': 872} examples to data\stt\mile-ta
+2026-11-28T01:08:15  [mile-audit] exit 0
+    == Size ==
+    train  clips=75190  hours=127.84  unknown_duration=0  median_s=5.22  speakers=622  top_speaker_share=0.003
+    dev    clips=872  hours=2.54  unknown_duration=0  median_s=9.84  speakers=8  top_speaker_share=0.125
+    test   clips=872  hours=2.36  unknown_duration=0  median_s=9.22  speakers=8  top_speaker_share=0.125
+    test-known clips=12087  hours=16.81  unknown_duration=0  median_s=4.57  speakers=430  top_speaker_share=0.005
+    == Train/test leakage ==
+    test_sentences_seen_in_train: 0
+    test_speakers_seen_in_train: 0
+    test_clips: 872
+    dev_speakers_seen_in_train: 0
+    == Flags (clip may be counted under several reasons) ==
+    [train] 75190 clips, 1018 flags
+          989  transcript repeated Nx in train
+           28  longer than Ns
+            1  speaking rate N chars/s vs median N
+    [dev] 872 clips, 0 flags
+    [test] 872 clips, 0 flags
+    [test-known] 12087 clips, 7 flags
+            5  very short audio
+            2  longer than Ns
+    Wrote 1025 flags to data\stt\mile-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-28T01:08:22  [combo3-combine] exit 0
+    train: 202094  cv-ta=37358  kb-ta=89561  mile-ta=75175
+    excluded_test_sentences: 32  kb-ta/train=10  mile-ta/train=15  cv-ta/dev=3  mile-ta/dev=4
+    dev: 15526  cv-ta=12165  kb-ta=2493  mile-ta=868
+    Wrote data\stt\combo3-ta. Run audit_data.py on it before training.
+2026-11-28T01:08:35  [combo3-audit] exit 0
+    == Size ==
+    train  clips=202094  hours=354.37  unknown_duration=0  median_s=5.87  speakers=766  top_speaker_share=0.025
+    dev    clips=15526  hours=26.58  unknown_duration=0  median_s=5.82  speakers=49  top_speaker_share=0.042
+    == Flags (clip may be counted under several reasons) ==
+    [train] 202094 clips, 2231 flags
+         1282  transcript repeated Nx in train
+          830  contains Latin letters
+           48  speaking rate N chars/s vs median N
+           35  mostly non-Tamil letters
+           32  longer than Ns
+            4  contains characters from another script
+    [dev] 15526 clips, 25 flags
+           22  contains Latin letters
+            2  speaking rate N chars/s vs median N
+            1  contains characters from another script
+    Wrote 2256 flags to data\stt\combo3-ta\audit_flags.csv. Listen to a sample before deciding.
+2026-11-28T01:08:35  [run3] training started PID 31000 resume=True
+2026-11-28T08:59:30  === RUN 3 RESUME after Windows Update restart at 02:14 (PID 31828; last checkpoint-4000)
+2026-11-28T08:59:30  [run3] training started PID 31984 resume=True

@@ -1,0 +1,39 @@
+# ADA-STT base, run 4: the first "clean" model (Day 2 fixes, no augmentation; owner decision 2026-11-28).
+# Data: re-prepared CV + Kathbath + MILE (C:\ada-data\prep_day2.ps1): mixed-gender dev/test, train deduped
+# against dev/test/test-known, invisible characters removed, no punctuation in labels, CV as 16 kHz FLAC,
+# cap 5,000 clips/speaker, every test + test-known + FLEURS sentence excluded.
+# Same total compute as run 3 (6,000 x 64 = 384k samples vs 20,000 x 16 = 320k), checkpoint picked on dev CER
+# with a per-source dev sample.
+
+base_model: openai/whisper-base
+language: tamil
+task: transcribe
+data_dir: data/stt/combo4-ta
+output_dir: models/ada-stt-base-clean4
+eval_per_source: 400          # up to 400 dev clips from each of cv2-ta, kb2-ta, mile2-ta
+metric_for_best_model: cer
+
+spec_augment:
+  mask_time_prob: 0.05
+  mask_time_length: 10
+  mask_feature_prob: 0.05
+  mask_feature_length: 10
+
+per_device_train_batch_size: 16
+per_device_eval_batch_size: 32
+gradient_accumulation_steps: 4   # effective batch 64
+gradient_checkpointing: false    # base fits in 8 GB without it (checked by the smoke test); ~25% faster
+bf16: true
+fp16: false
+
+learning_rate: 2.5e-5
+warmup_steps: 300
+max_steps: 6000
+eval_steps: 500
+save_steps: 500
+save_total_limit: 2
+logging_steps: 25
+generation_max_length: 225
+max_audio_seconds: 30
+dataloader_num_workers: 4
+seed: 42

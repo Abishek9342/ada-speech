@@ -1,0 +1,34 @@
+# data: data/stt/nonspeech/test
+# clips: 32  synthetic non-speech, seed 7
+ns_000_silence.flac
+ns_001_hiss.flac
+ns_002_silence.flac
+ns_003_hiss.flac
+ns_004_silence.flac
+ns_005_hiss.flac
+ns_006_white50.flac
+ns_007_white35.flac
+ns_008_white20.flac
+ns_009_pink50.flac
+ns_010_pink35.flac
+ns_011_pink20.flac
+ns_012_brown50.flac
+ns_013_brown35.flac
+ns_014_brown20.flac
+ns_015_hum50.flac
+ns_016_hum50.flac
+ns_017_hum100.flac
+ns_018_hum100.flac
+ns_019_fan0.flac
+ns_020_fan1.flac
+ns_021_fan2.flac
+ns_022_fan3.flac
+ns_023_fan4.flac
+ns_024_fan5.flac
+ns_025_clicks0.flac
+ns_026_clicks1.flac
+ns_027_clicks2.flac
+ns_028_clicks3.flac
+ns_029_tone440.flac
+ns_030_tone1000.flac
+ns_031_tone3000.flac

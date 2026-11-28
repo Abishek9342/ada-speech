@@ -283,7 +283,28 @@ CPU: i7-13645HX (14C/20T), int8, beam 5, plugged in. 10:33–11:03.
   after the new archive checks OK, smoke model folders, old checkpoints of finished runs); lid close = do
   nothing on AC. If MILE finishes: prep + audit, and if clean start run 3 (CV + Kathbath + MILE) after run 2.
   Cap train clips per speaker at **5,000**. If GPU ≥ 87 °C for 3+ min: pause, cool below 65 °C, resume
-  from the last checkpoint. MILE joins if it is
+  from the last checkpoint.
+- Laptop prepared for the night: AC sleep/hibernate never, lid close on AC = do nothing (powercfg, verified),
+  owner paused Windows Update for 1 week and set Power mode = Best performance.
+- Overnight pipeline as a standalone script `C:\ada-data\overnight.ps1` (survives a Claude session ending):
+  Kathbath audit gate → combine (cap 5000/speaker, exclude every test set's sentences) → audit → smoke →
+  run 2 (heat pause/resume, 1 retry on crash) → export → evals on CV / Kathbath / Kathbath-known / FLEURS
+  (+ no digits) → push log → wait for MILE (until 03:00) → extract, prep, audit gate → run 3 → evals →
+  cleanup of permitted junk → push. Progress: `logs/overnight.log`. Helper functions self-tested (exit codes,
+  leak gate, crash-retry path) before launch.
+- Kathbath pass 2 (32 min): train 90,712 / 161.7 h / 122 speakers; dev 2,493 (8 unseen speakers); test 2,555
+  (8 unseen); test-known 2,770 (20 seen). **Leakage all 0.**
+- Gate: errors → `logs/NEEDS_FIX.md` (Claude fixes and pushes, no alert); decisions → `logs/NEEDS_OWNER.md`
+  + email to the owner (test email sent OK 16:45). The script polls GitHub every 5 min and retries on a new
+  commit; `logs/OWNER_REPLY.md` with SKIP skips the step.
+- **Overnight script started 16:50 (PID 3296).** Combine: train 126,924 clips / 226.6 h / 144 speakers,
+  top_speaker_share 0.039 (cap 5000: CV 46,514 → 37,358); dev 14,658 (CV 12,165 + KB 2,493). Cross-corpus
+  exclusion removed 8 clips whose sentence is in some test set (5 KB train, 3 CV dev).
+- Smoke OK, run 2 started 16:51 (SpecAugment on, train=126,919, 1.2 steps/s). **16:59:33 all stopped**:
+  training err log ends `forrtl: error (200): program aborting due to window-CLOSE event`; the two minimized
+  console windows (overnight + MILE download) were closed, killing their children. Run 2 was at step 319 (no
+  checkpoint yet). **Fix: relaunched both with `-WindowStyle Hidden` at 17:00** (no window to close).
+  MILE resumed from 12.64 GB (single downloader, lock checked); overnight restarted from the top (PID 24484). MILE joins if it is
   ready before the run starts; otherwise it goes into run 3.
 
 ## Problems / questions for the owner

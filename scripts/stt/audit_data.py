@@ -22,17 +22,21 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from ada.stt.audit import audit, load_split
+from ada.stt.audit import audit, is_expected, load_split, real_leaks
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--data", required=True, type=Path, help="folder with train/ and test/")
     p.add_argument("--max-seconds", type=float, default=30.0)
+    p.add_argument("--test-dirs", nargs="*", type=Path, default=[],
+                   help="more test folders (with metadata.csv) to check train/dev against, e.g. "
+                        "every source's test/ and test-known/ for a combined set, and FLEURS")
     args = p.parse_args()
 
     clips = {s: load_split(args.data / s, s) for s in ("train", "dev", "test", "test-known") if (args.data / s).exists()}
-    report = audit(clips, max_s=args.max_seconds)
+    extra = {f"{d.parent.name}/{d.name}": load_split(d, f"{d.parent.name}/{d.name}") for d in args.test_dirs}
+    report = audit(clips, max_s=args.max_seconds, extra_tests=extra)
 
     print("== Size ==")
     for split, st in report.stats.items():
@@ -41,7 +45,11 @@ def main() -> None:
     if report.leaks:
         print("\n== Train/test leakage ==")
         for k, v in report.leaks.items():
-            print(f"{k}: {v}")
+            print(f"{k}: {v}" + ("  (expected)" if is_expected(k) else ""))
+        bad = real_leaks(report.leaks)
+        print(f"LEAK CHECK: {'FAIL ' + str(sorted(bad)) if bad else 'PASS'}")
+    else:
+        print("\n== Train/test leakage ==\nno held-out set found: pass --test-dirs\nLEAK CHECK: FAIL [no test set]")
 
     print("\n== Flags (clip may be counted under several reasons) ==")
     # Count per split: pooling them hid the fact that most flags were in train.

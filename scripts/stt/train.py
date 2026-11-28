@@ -54,6 +54,76 @@ class SpeechCollator:
         return batch
 
 
+def source_of(file_name: str) -> str:
+    """'../../kb2-ta/dev/x.flac' -> 'kb2-ta' (combined sets); plain 'x.flac' -> ''."""
+    parts = [p for p in Path(file_name).parts if p not in ("..", ".")]
+    return parts[0] if len(parts) > 2 else ""
+
+
+def count_sources(rows: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[source_of(r["file_name"])] = counts.get(source_of(r["file_name"]), 0) + 1
+    return counts
+
+
+def sample_per_source(rows: list[dict], n: int, seed: int) -> list[dict]:
+    """Up to n rows from each source, seeded, so every corpus has a say in checkpoint choice."""
+    import random
+
+    by_src: dict[str, list[dict]] = {}
+    for r in rows:
+        by_src.setdefault(source_of(r["file_name"]), []).append(r)
+    rng = random.Random(seed)
+    out: list[dict] = []
+    for src in sorted(by_src):
+        group = by_src[src]
+        out.extend(rng.sample(group, n) if len(group) > n else group)
+    return out
+
+
+def write_manifest(out_dir: Path, config_path: Path, cfg: dict, sizes: dict[str, int]) -> None:
+    """How this model was made: config, git commit, data hashes. Becomes the model card later."""
+    import hashlib
+    import json
+    import subprocess
+    import time
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    root = Path(__file__).resolve().parents[2]
+
+    def git(*a: str) -> str:
+        try:
+            return subprocess.run(["git", "-C", str(root), *a], check=False, capture_output=True,
+                                  text=True, timeout=20).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return ""
+
+    data = {}
+    for split in ("train", "dev", "test"):
+        meta = Path(cfg["data_dir"]) / split / "metadata.csv"
+        if meta.exists():
+            raw = meta.read_bytes()
+            data[split] = {"rows": raw.count(b"\n") - 1, "sha256": hashlib.sha256(raw).hexdigest()}
+    manifest = {
+        "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "config_file": str(config_path),
+        "git_commit": git("rev-parse", "HEAD"),
+        "git_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
+        "data": data,
+        "used_after_filters": sizes,
+    }
+    try:
+        import torch
+        import transformers
+
+        manifest["versions"] = {"torch": torch.__version__, "transformers": transformers.__version__}
+    except ImportError:
+        pass
+    (out_dir / "run_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (out_dir / "config.yaml").write_text(config_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=Path)
@@ -99,10 +169,14 @@ def main() -> None:
     # ---- data ---------------------------------------------------------------
     # Read metadata.csv directly (not the "audiofolder" loader, which breaks with some
     # pyarrow versions). Audio is decoded lazily, batch by batch.
-    def load_split(split: str) -> Dataset:
+    def load_split(split: str, per_source: int | None = None) -> Dataset:
         folder = Path(cfg["data_dir"]) / split
         with open(folder / "metadata.csv", encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
+        if per_source:
+            rows = sample_per_source(rows, per_source, cfg["seed"])
+            print(f"{split}: per-source sample " + ", ".join(
+                f"{s}={n}" for s, n in sorted(count_sources(rows).items())))
         return Dataset.from_dict({
             "audio": [str(folder / r["file_name"]) for r in rows],
             "transcription": [r["transcription"] for r in rows],
@@ -111,11 +185,14 @@ def main() -> None:
 
     # Validate on dev when the data has one, so the best checkpoint is never picked on test.
     eval_split = "dev" if (Path(cfg["data_dir"]) / "dev" / "metadata.csv").exists() else "test"
-    ds = DatasetDict({split: load_split(split) for split in ("train", eval_split)})
+    # eval_per_source: N dev clips from EACH source of a combined set (else the biggest source,
+    # Common Voice, decides which checkpoint wins).
+    per_source = None if args.smoke else cfg.get("eval_per_source")
+    ds = DatasetDict({"train": load_split("train"), eval_split: load_split(eval_split, per_source)})
     ds = ds.cast_column("audio", Audio(sampling_rate=SAMPLE_RATE))
     # Generating on a full dev/test set every eval_steps is slow; a fixed random sample is enough.
     eval_max = 16 if args.smoke else cfg.get("eval_max_samples")
-    if eval_max and len(ds[eval_split]) > eval_max:
+    if eval_max and not per_source and len(ds[eval_split]) > eval_max:
         ds[eval_split] = ds[eval_split].shuffle(seed=cfg["seed"]).select(range(eval_max))
     if args.smoke:
         ds["train"] = ds["train"].select(range(min(64, len(ds["train"]))))
@@ -173,7 +250,8 @@ def main() -> None:
         predict_with_generate=True,
         generation_max_length=cfg["generation_max_length"],
         load_best_model_at_end=True,
-        metric_for_best_model="wer",
+        # CER by default: steadier than WER for Tamil (one wrong suffix = one wrong long word).
+        metric_for_best_model=cfg.get("metric_for_best_model", "cer"),
         greater_is_better=False,
         report_to=["tensorboard"],
         dataloader_num_workers=cfg["dataloader_num_workers"],
@@ -191,6 +269,8 @@ def main() -> None:
         processing_class=processor,
     )
 
+    write_manifest(Path(training_args.output_dir), args.config, cfg,
+                   {"train": len(ds["train"]), eval_split: len(ds[eval_split])})
     has_ckpt = any(Path(training_args.output_dir).glob("checkpoint-*"))
     if args.resume and has_ckpt:
         print("Resuming from the latest checkpoint (baseline eval skipped).")
@@ -200,15 +280,21 @@ def main() -> None:
         if args.resume:
             print("No checkpoint found; starting from scratch.")
         baseline = trainer.evaluate()
-        print(f"Baseline WER before fine-tuning: {baseline['eval_wer']:.2f}")
+        print(f"Baseline WER before fine-tuning: {baseline['eval_wer']:.2f}  "
+              f"CER: {baseline['eval_cer']:.2f}")
         trainer.train()
 
     final_dir = Path(training_args.output_dir) / "final"
     trainer.save_model(final_dir)
     processor.save_pretrained(final_dir)
+    for name in ("run_manifest.json", "config.yaml"):
+        src = Path(training_args.output_dir) / name
+        if src.exists():
+            (final_dir / name).write_bytes(src.read_bytes())
     final = trainer.evaluate()
     before = f"{baseline['eval_wer']:.2f}" if baseline else "n/a (resumed)"
-    print(f"WER before: {before}  after: {final['eval_wer']:.2f}")
+    print(f"WER before: {before}  after: {final['eval_wer']:.2f}  CER after: {final['eval_cer']:.2f}"
+          f"  (best checkpoint: {trainer.state.best_model_checkpoint})")
     print(f"Saved to {final_dir}. Next: scripts/stt/export_ct2.py to make it CPU-fast.")
 
 

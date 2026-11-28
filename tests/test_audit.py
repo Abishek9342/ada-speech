@@ -53,3 +53,27 @@ def test_stats_hours_and_speakers():
     r = audit({"train": [clip("அ", dur=1800, speaker="a"), clip("ஆ", dur=1800, speaker="b")]})
     assert r.stats["train"]["hours"] == 1.0
     assert r.stats["train"]["speakers"] == 2
+
+
+def test_leakage_on_combined_set_uses_extra_test_dirs():
+    from ada.stt.audit import real_leaks
+
+    train = [clip("ஒன்று", speaker="a"), clip("இரண்டு", speaker="b")]
+    dev = [clip("இரண்டு", speaker="c", split="dev")]             # sentence seen in train
+    ext = {"kb-ta/test": [clip("ஒன்று", speaker="z", split="kb-ta/test")],
+           "kb-ta/test-known": [clip("மூன்று", speaker="a", split="kb-ta/test-known")]}
+    r = audit({"train": train, "dev": dev}, extra_tests=ext)
+    assert r.leaks["dev_sentences_seen_in_train"] == 1
+    assert r.leaks["kb-ta/test_sentences_seen_in_train"] == 1
+    assert r.leaks["kb-ta/test-known_speakers_seen_in_train"] == 1   # by design for test-known
+    bad = real_leaks(r.leaks)
+    assert set(bad) == {"dev_sentences_seen_in_train", "kb-ta/test_sentences_seen_in_train"}
+    # the in-folder test-known split is expected to share speakers, so it is not a real leak
+    r2 = audit({"train": train, "test-known": [clip("நான்கு", speaker="a", split="test-known")]})
+    assert real_leaks(r2.leaks) == {}
+
+
+def test_invisible_chars_are_not_another_script():
+    r = audit({"train": [clip("க்\u200dஷ")]})
+    assert any("invisible" in x for x in reasons(r))
+    assert not any("another script" in x for x in reasons(r))

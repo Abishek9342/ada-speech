@@ -60,6 +60,85 @@ def _duration(path: Path) -> str:
         return ""
 
 
+def _to_flac16k(src: Path, dst: Path) -> str:
+    """Decode any audio (e.g. 48 kHz mp3), resample to 16 kHz mono, write 16-bit FLAC.
+
+    Done once at prep time so training doesn't decode and resample mp3 for every batch
+    (that kept the GPU idle about half the time on Day 1). Returns "" or an error message.
+    """
+    try:
+        import av
+        import numpy as np
+        import soundfile as sf
+
+        chunks = []
+        with av.open(str(src)) as container:
+            resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
+            for frame in container.decode(audio=0):
+                chunks.extend(f.to_ndarray() for f in resampler.resample(frame))
+            chunks.extend(f.to_ndarray() for f in resampler.resample(None))
+        if not chunks:
+            return f"{src.name}: no audio"
+        tmp = dst.with_suffix(".tmp.flac")
+        sf.write(str(tmp), np.concatenate(chunks, axis=1).reshape(-1), 16000, format="FLAC",
+                 subtype="PCM_16")
+        tmp.replace(dst)
+        return ""
+    except Exception as e:  # noqa: BLE001 - reported and the clip is skipped
+        return f"{src.name}: {e}"
+
+
+class _Serial:
+    """Stand-in for ProcessPoolExecutor when workers <= 1 (tests, debugging)."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def map(self, fn, *iterables, chunksize=1):
+        return map(fn, *iterables)
+
+
+def convert_rows_to_flac(rows: list[Row], out_dir: Path, workers: int = 6) -> list[Row]:
+    """Convert every non-FLAC clip into out_dir as 16 kHz FLAC (in parallel); rows then point there."""
+    from concurrent.futures import ProcessPoolExecutor
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    todo = [(src, out_dir / (src.stem + ".flac")) for src, _, _ in rows
+            if src.suffix.lower() != ".flac" and src.exists()]
+    todo = [(s, d) for s, d in todo if not d.exists()]
+    errors = []
+    if todo:
+        with ProcessPoolExecutor(max_workers=workers) if workers > 1 else _Serial() as pool:
+            for n, err in enumerate(pool.map(_to_flac16k, *zip(*todo), chunksize=64), 1):
+                if err:
+                    errors.append(err)
+                if n % 5000 == 0:
+                    print(f"  converted {n}/{len(todo)}", flush=True)
+    if errors:
+        print(f"  {len(errors)} clips failed to convert (skipped), e.g. {errors[:3]}")
+    out = []
+    for src, text, spk in rows:
+        dst = src if src.suffix.lower() == ".flac" else out_dir / (src.stem + ".flac")
+        out.append((dst, text, spk))
+    return out
+
+
+def clean_labels(rows: list[Row], punctuation: str) -> list[Row]:
+    """Invisible characters out, one 'sri' spelling; punctuation 'none' strips it all."""
+    from ada.text import clean_text, strip_punctuation
+
+    out = []
+    for path, text, spk in rows:
+        text = clean_text(text)
+        if punctuation == "none":
+            text = strip_punctuation(text)
+        out.append((path, text, spk))
+    return out
+
+
 def _write_split(rows: list[Row], out_dir: Path, max_rows: int | None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     if max_rows:
@@ -137,6 +216,15 @@ def _mile_speaker(stem: str) -> str:
     return "_".join(parts[:2]) if len(parts) >= 3 else ""
 
 
+def dev_test_split(held: list[str]) -> dict[str, str]:
+    """Assign held-out speakers to dev/test in PAIRS: d, d, t, t, d, d, ...
+
+    `held` alternates genders (F, M, F, M, ...) for Kathbath, so `i % 2` put every female
+    speaker in dev and every male in test. Pairs give both splits both genders.
+    """
+    return {s: ("dev" if (i // 2) % 2 == 0 else "test") for i, s in enumerate(held)}
+
+
 def from_mile(src: Path, holdout_speakers: int = 16) -> dict[str, list[Row]]:
     """IISc-MILE train/ and test/ folders.
 
@@ -175,7 +263,7 @@ def from_mile(src: Path, holdout_speakers: int = 16) -> dict[str, list[Row]]:
         return splits
     median = statistics.median(counts[s] for s in candidates)
     held = sorted(candidates, key=lambda s: (abs(counts[s] - median), s))[:holdout_speakers]
-    split_of = {s: ("dev" if i % 2 == 0 else "test") for i, s in enumerate(held)}
+    split_of = dev_test_split(held)
     print(f"  holding out {len(held)} speakers: " + ", ".join(f"{s}({counts[s]})" for s in held))
     train: list[Row] = []
     for r in splits["train"]:
@@ -209,6 +297,8 @@ def from_kathbath(src: Path, out: Path, holdout_speakers: int = 16) -> dict[str,
                 s[0] += 1
         return {k: (v[0], v[1]) for k, v in stats.items()}
 
+    seen_names: set[str] = set()
+
     def read(pattern: str, split_of) -> dict[str, list[Row]]:
         rows: dict[str, list[Row]] = {}
         files = sorted(src.glob(pattern))
@@ -221,6 +311,9 @@ def from_kathbath(src: Path, out: Path, holdout_speakers: int = 16) -> dict[str,
                     split = split_of(speaker)
                     audio = r["audio_filepath"]
                     name = Path(audio.get("path") or r["fname"]).with_suffix(".flac").name
+                    if name in seen_names:  # would silently pair this text with another clip's audio
+                        raise SystemExit(f"Kathbath: file name {name} appears twice ({path.name}).")
+                    seen_names.add(name)
                     dst = out / split / name
                     if not dst.exists():
                         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -244,7 +337,7 @@ def from_kathbath(src: Path, out: Path, holdout_speakers: int = 16) -> dict[str,
         for q in queues:
             if q and len(held) < holdout_speakers:
                 held.append(q.pop(0))
-    split_of_held = {s: ("dev" if i % 2 == 0 else "test") for i, s in enumerate(held)}
+    split_of_held = dev_test_split(held)
     print(f"  holding out {len(held)} speakers: "
           + ", ".join(f"{s}({train_spk[s][1][:1]},{train_spk[s][0]})" for s in held))
 
@@ -325,6 +418,11 @@ def main() -> None:
                    help="train only: drop clips whose sentence also appears in test")
     p.add_argument("--min-seconds", type=float, default=0.0,
                    help="train only: drop clips shorter than this (needs readable durations)")
+    p.add_argument("--punctuation", choices=["keep", "none"], default="keep",
+                   help="train/dev labels: 'none' strips all punctuation (ADA v0.1 style)")
+    p.add_argument("--flac16k", action="store_true",
+                   help="train/dev: convert non-FLAC audio (e.g. Common Voice mp3) to 16 kHz FLAC once")
+    p.add_argument("--workers", type=int, default=6, help="processes for --flac16k")
     args = p.parse_args()
 
     if args.format == "commonvoice":
@@ -340,6 +438,13 @@ def main() -> None:
 
     splits = apply_filters(splits, args.drop_digit_clips, args.dedupe_test_sentences,
                            args.min_seconds)
+    # Labels the model learns from (train) or is validated on (dev); test stays as published
+    # (the scorer's normalize() applies the same cleanup, so scores are unaffected).
+    for name in ("train", "dev"):
+        if name in splits:
+            splits[name] = clean_labels(splits[name], args.punctuation)
+            if args.flac16k:
+                splits[name] = convert_rows_to_flac(splits[name], args.out / name, args.workers)
     caps = {"train": args.max_train, "dev": args.max_test, "test": args.max_test,
             "test-known": args.max_test}
     counts = {name: _write_split(rows, args.out / name, caps.get(name))

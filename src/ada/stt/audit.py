@@ -74,12 +74,15 @@ def char_profile(text: str) -> Counter:
             kinds["latin"] += 1
         elif unicodedata.category(ch)[0] in ("P", "S"):
             kinds["punct"] += 1
+        elif unicodedata.category(ch) == "Cf":  # ZWJ/ZWNJ etc.: invisible, not another script
+            kinds["invisible"] += 1
         else:
             kinds["other_script"] += 1
     return kinds
 
 
-def audit(clips_by_split: dict[str, list[Clip]], min_s: float = 1.0, max_s: float = 30.0) -> Report:
+def audit(clips_by_split: dict[str, list[Clip]], min_s: float = 1.0, max_s: float = 30.0,
+          extra_tests: dict[str, list[Clip]] | None = None) -> Report:
     report = Report()
 
     for split, clips in clips_by_split.items():
@@ -125,21 +128,58 @@ def audit(clips_by_split: dict[str, list[Clip]], min_s: float = 1.0, max_s: floa
                 report.flags.append(Flag(c, "contains Latin letters (code-switching?)"))
             if kinds["other_script"]:
                 report.flags.append(Flag(c, "contains characters from another script"))
+            if kinds["invisible"]:
+                report.flags.append(Flag(c, "contains invisible format characters (ZWJ/ZWNJ/BOM)"))
             if kinds["digit"]:
                 report.flags.append(Flag(c, "contains digits (check number style is consistent)"))
             if texts[norm] > 1 and split == "train":
                 report.flags.append(Flag(c, f"transcript repeated {texts[norm]}x in train"))
 
-    if "train" in clips_by_split and "test" in clips_by_split:
-        train, test = clips_by_split["train"], clips_by_split["test"]
-        train_texts = {normalize(c.text) for c in train}
-        train_spk = {c.speaker for c in train if c.speaker}
-        report.leaks = {
-            "test_sentences_seen_in_train": sum(normalize(c.text) in train_texts for c in test),
-            "test_speakers_seen_in_train": len({c.speaker for c in test if c.speaker} & train_spk),
-            "test_clips": len(test),
-        }
-        if "dev" in clips_by_split:  # validation speakers must also be new, or eval WER flatters
-            dev_spk = {c.speaker for c in clips_by_split["dev"] if c.speaker}
-            report.leaks["dev_speakers_seen_in_train"] = len(dev_spk & train_spk)
+    report.leaks = leakage(clips_by_split, extra_tests or {})
     return report
+
+
+# test-known sets share speakers with train on purpose (that is what "known" means).
+EXPECTED_LEAKS = ("test-known_speakers_seen_in_train",)
+
+
+def leakage(clips_by_split: dict[str, list[Clip]],
+            extra_tests: dict[str, list[Clip]]) -> dict[str, int]:
+    """Sentence and speaker overlap of every held-out set with train, and of test sets with dev.
+
+    Held-out sets: this folder's dev/, test/, test-known/ plus `extra_tests` (e.g. the test
+    folders of every source of a combined set, and FLEURS). Keys look like
+    `<set>_sentences_seen_in_<train|dev>`; any value > 0 is a leak except EXPECTED_LEAKS.
+    """
+    def texts(clips):
+        return {normalize(c.text) for c in clips}
+
+    def speakers(clips):
+        return {c.speaker for c in clips if c.speaker}
+
+    leaks: dict[str, int] = {}
+    refs = {k: clips_by_split[k] for k in ("train", "dev") if k in clips_by_split}
+    held = {k: clips_by_split[k] for k in ("dev", "test", "test-known") if k in clips_by_split}
+    held.update(extra_tests)
+    for ref_name, ref in refs.items():
+        ref_texts, ref_spk = texts(ref), speakers(ref)
+        for name, clips in held.items():
+            if name == ref_name:
+                continue
+            leaks[f"{name}_sentences_seen_in_{ref_name}"] = sum(
+                normalize(c.text) in ref_texts for c in clips)
+            leaks[f"{name}_speakers_seen_in_{ref_name}"] = len(speakers(clips) & ref_spk)
+    if "test" in clips_by_split:
+        leaks["test_clips"] = len(clips_by_split["test"])
+    return leaks
+
+
+def real_leaks(leaks: dict[str, int]) -> dict[str, int]:
+    """Leak counts that must be zero before training (test-known speakers are expected)."""
+    return {k: v for k, v in leaks.items()
+            if "_seen_in_" in k and v > 0 and not is_expected(k)}
+
+
+def is_expected(key: str) -> bool:
+    """Also matches '<source>/test-known_speakers_seen_in_train' from --test-dirs."""
+    return any(key == e or key.endswith("/" + e) for e in EXPECTED_LEAKS)
