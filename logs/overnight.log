@@ -273,3 +273,30 @@
 2026-11-28T01:08:35  [run3] training started PID 31000 resume=True
 2026-11-28T08:59:30  === RUN 3 RESUME after Windows Update restart at 02:14 (PID 31828; last checkpoint-4000)
 2026-11-28T08:59:30  [run3] training started PID 31984 resume=True
+    {'eval_loss': '0.1909', 'eval_wer': '36.23', 'eval_cer': '7.347', 'eval_runtime': '112.6', 'eval_samples_per_second': '8.879', 'eval_steps_per_second': '0.559', 'epoch': '0.4757'}
+    {'eval_loss': '0.1808', 'eval_wer': '34.33', 'eval_cer': '6.896', 'eval_runtime': '109.1', 'eval_samples_per_second': '9.164', 'eval_steps_per_second': '0.577', 'epoch': '0.6343'}
+    {'eval_loss': '0.1714', 'eval_wer': '33.68', 'eval_cer': '6.611', 'eval_runtime': '111.5', 'eval_samples_per_second': '8.966', 'eval_steps_per_second': '0.565', 'epoch': '0.7928'}
+    {'eval_loss': '0.1646', 'eval_wer': '32.13', 'eval_cer': '6.244', 'eval_runtime': '109.4', 'eval_samples_per_second': '9.139', 'eval_steps_per_second': '0.576', 'epoch': '0.9514'}
+    {'eval_loss': '0.16', 'eval_wer': '31.36', 'eval_cer': '6.19', 'eval_runtime': '108.4', 'eval_samples_per_second': '9.222', 'eval_steps_per_second': '0.581', 'epoch': '1.11'}
+    {'eval_loss': '0.1556', 'eval_wer': '30.1', 'eval_cer': '5.917', 'eval_runtime': '112.2', 'eval_samples_per_second': '8.912', 'eval_steps_per_second': '0.561', 'epoch': '1.269'}
+    {'eval_loss': '0.154', 'eval_wer': '30.26', 'eval_cer': '6.017', 'eval_runtime': '107.9', 'eval_samples_per_second': '9.272', 'eval_steps_per_second': '0.584', 'epoch': '1.427'}
+    {'eval_loss': '0.152', 'eval_wer': '30.07', 'eval_cer': '5.946', 'eval_runtime': '109.1', 'eval_samples_per_second': '9.168', 'eval_steps_per_second': '0.578', 'epoch': '1.586'}
+    WER before: n/a (resumed)  after: 30.07
+    Saved to models\ada-stt-base-combo3\final. Next: scripts/stt/export_ct2.py to make it CPU-fast.
+2026-11-28T12:57:02  [run3] training finished OK
+2026-11-28T12:57:11  [run3-export] exit 0
+    python.exe : W1128 12:57:06.923000 55876 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] 
+    NOTE: Redirects are currently not supported in Windows or MacOs.
+    At C:\ada-data\run3_resume.ps1:18 char:5
+    +     & $py -X utf8 @pyArgs *> $out
+    +     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        + CategoryInfo          : NotSpecified: (W1128 12:57:06....ndows or MacOs.:String) [], RemoteException
+        + FullyQualifiedErrorId : NativeCommandError
+    Exported to models\ada-stt-base-combo3-ct2 (78 MB, int8).
+    Try it:  ada-stt some_audio.wav --model models\ada-stt-base-combo3-ct2 --stats
+2026-11-28T13:08:29  [run3-eval-cv] exit 0
+    Evaluating on 300 clips from data\stt\cv-ta\test (cpu)
+    model                                           WER %   CER %      CER 95% CI    RTF
+    base                                            82.93   26.70    25.42- 28.05   0.14
+    models/ada-stt-base-combo-ct2                   32.99    5.50     4.96-  6.03   0.11
+    models/ada-stt-base-combo3-ct2                  32.37    5.22     4.71-  5.76   0.11

@@ -11,3 +11,39 @@
 2026-11-28T11:42:46    kb2-audit: LEAK CHECK: PASS
 2026-11-28T11:42:46    mile2-audit: LEAK CHECK: PASS
 2026-11-28T11:42:46    combo4-audit: LEAK CHECK: PASS
+2026-11-28T12:56:53  GPU free (no train.py running)
+2026-11-28T12:56:53  [eval-lists] exit 0
+    cv_test_500: 500 clips from data\stt\cv2-ta\test
+    kb_unseen_test_500: 500 clips from data\stt\kb2-ta\test
+    kb_known_300: 300 clips from data\stt\kb2-ta\test-known
+    mile_unseen_test_500: 500 clips from data\stt\mile2-ta\test
+    mile_known_300: 300 clips from data\stt\mile2-ta\test-known
+    fleurs_all_300: 300 clips from data\stt\fleurs-ta\test
+    fleurs_nodigits_all: 464 clips from data\stt\fleurs-ta\test
+2026-11-28T13:08:57  [run4-smoke] exit 0
+    supported in Windows or MacOs.
+    W1128 13:08:12.019000 69856 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: 
+    Redirects are currently not supported in Windows or MacOs.
+    W1128 13:08:17.342000 15208 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: 
+    Redirects are currently not supported in Windows or MacOs.
+    W1128 13:08:22.683000 71712 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: 
+    Redirects are currently not supported in Windows or MacOs.
+    {'eval_loss': '0.4438', 'eval_model_preparation_time': '0.0019', 'eval_wer': '75.57', 'eval_cer': '18.84', 'eval_runtime': '26.12', 'eval_samples_per_second': '0.613', 'eval_steps_per_second': '0.038', 'epoch': '10'}
+    {'loss': '1.213', 'grad_norm': '8.098', 'learning_rate': '7.5e-06', 'epoch': '15'}
+    {'loss': '0.9847', 'grad_norm': '7.974', 'learning_rate': '1.25e-06', 'epoch': '20'}
+    [A
+    {'eval_loss': '0.4329', 'eval_model_preparation_time': '0.0019', 'eval_wer': '77.1', 'eval_cer': '17.64', 'eval_runtime': '25.8', 'eval_samples_per_second': '0.62', 'eval_steps_per_second': '0.039', 'epoch': '20'}
+                                                  [A
+    checkpoint model loaded: ['proj_out.weight'].
+    {'train_runtime': '645.3', 'train_samples_per_second': '1.984', 'train_steps_per_second': '0.031', 'train_loss': '1.737', 'epoch': '20'}
+    W1128 13:08:33.920000 62944 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: 
+    Redirects are currently not supported in Windows or MacOs.
+    W1128 13:08:39.381000 53912 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: 
+    Redirects are currently not supported in Windows or MacOs.
+    W1128 13:08:44.910000 53336 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: 
+    Redirects are currently not supported in Windows or MacOs.
+    W1128 13:08:50.415000 74704 Lib\site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: 
+    Redirects are currently not supported in Windows or MacOs.
+    WER before: 88.55  after: 77.10  CER after: 17.64  (best checkpoint: models/ada-stt-base-clean4-smoke\checkpoint-20)
+    Saved to models\ada-stt-base-clean4-smoke\final. Next: scripts/stt/export_ct2.py to make it CPU-fast.
+2026-11-28T13:08:57  [run4] training started PID 74204 (configs/stt/whisper-base-clean4-8gb.yaml)
