@@ -1,0 +1,1 @@
+configs/stt/whisper-base-clean4-safe-8gb.yaml

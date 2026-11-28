@@ -47,3 +47,12 @@
     WER before: 88.55  after: 77.10  CER after: 17.64  (best checkpoint: models/ada-stt-base-clean4-smoke\checkpoint-20)
     Saved to models\ada-stt-base-clean4-smoke\final. Next: scripts/stt/export_ct2.py to make it CPU-fast.
 2026-11-28T13:08:57  [run4] training started PID 74204 (configs/stt/whisper-base-clean4-8gb.yaml)
+2026-11-28T15:23:27  run 4 stopped by Claude at step 92: VRAM overflowed into shared memory (5.7 GB, 182 s/step). Restarting run 4 from scratch with configs/stt/whisper-base-clean4-safe-8gb.yaml (grad checkpointing on, workers 0, eval batch 16)
+2026-11-28T15:23:28  === NIGHT2 START (PID 31568)
+2026-11-28T15:23:28  data prep done
+2026-11-28T15:23:28    cv2-audit: LEAK CHECK: PASS
+2026-11-28T15:23:28    kb2-audit: LEAK CHECK: PASS
+2026-11-28T15:23:28    mile2-audit: LEAK CHECK: PASS
+2026-11-28T15:23:28    combo4-audit: LEAK CHECK: PASS
+2026-11-28T15:23:28  GPU free (no train.py running)
+2026-11-28T15:23:28  [run4] training started PID 26280 (configs/stt/whisper-base-clean4-safe-8gb.yaml)

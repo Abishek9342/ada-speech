@@ -59,6 +59,35 @@ base 90.6%). The model itself invents text on noise; run 5 needs noise / non-spe
 ## Run 3 progress (dev WER, combo3 dev incl. MILE; not comparable to run 2's dev)
 step 2000 46.04, 4000 40.04, 6000 36.23, 8000 34.33, 10000 33.68, 12000 32.13, 14000 31.36.
 
+Run 3 finished 12:56. Best dev WER 30.10 at step 16000.
+
+Old lists (first 300 / 150 clips), CER % [95% CI] / WER %:
+
+| set | stock base | run 2 | run 3 |
+|---|---|---|---|
+| CV test | 26.70 / 82.9 | 5.50 [5.0-6.0] / 33.0 | **5.22** [4.7-5.8] / 32.4 |
+| Kathbath unseen | 33.47 / 92.8 | 6.71 [6.2-7.2] / 33.8 | **6.16** [5.7-6.7] / 32.3 |
+| Kathbath test-known | 36.87 / 93.5 | 4.77 / 26.2 | 4.89 / 26.2 |
+| FLEURS all | 54.44 / 100.8 | 14.49 / 38.2 | **13.87** / 35.1 |
+| FLEURS no-digits | 53.53 / 98.3 | 11.27 / 33.7 | **10.56** [7.8-13.9] / 30.7 |
+| MILE official test* | 29.98 / 82.6 | 6.05 / 32.5 | 3.74 / 23.4 |
+
+\* MILE official test speakers are in run 3's train (test-known), so that number is optimistic.
+RTF 0.11 to 0.15 (FLEURS 0.40: long clips). Exported to `models/ada-stt-base-combo3-ct2`.
+
+## Run 4 VRAM incident (13:08 to 15:22)
+Run 4 started with gradient checkpointing off and 4 dataloader workers (the smoke test passed). By 15:22 it
+was only at step 92 (182 s/step). The driver had spilled 5.7 GB of GPU memory into shared system RAM
+(Windows sysmem fallback, no OOM error), and the GPU drew 22 W. The smoke test uses tiny batches, so it
+could not catch this.
+
+Restarted from scratch at 15:23 with `configs/stt/whisper-base-clean4-safe-8gb.yaml`: run 3's memory
+settings (gradient checkpointing on, workers 0, eval batch 16), same recipe otherwise. Shared memory went
+back to 0.6 GB, GPU 85 W, 2.9 s/step, so about 4.8 h (done about 20:15, then export and the fixed-list
+evals overnight).
+
+Lesson: a smoke test must also run full-size batches for a few minutes and check shared GPU memory.
+
 ## Unattended chain (after the owner left at 12:00)
 1. `run3_resume.ps1`: finish run 3, export `models/ada-stt-base-combo3-ct2`, old-list evals.
 2. `night2.ps1`:
