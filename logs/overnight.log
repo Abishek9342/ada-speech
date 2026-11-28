@@ -312,3 +312,9 @@
     base                                            93.45   36.87    34.93- 38.80   0.20
     models/ada-stt-base-combo-ct2                   26.15    4.77     4.34-  5.25   0.13
     models/ada-stt-base-combo3-ct2                  26.24    4.89     4.43-  5.34   0.14
+2026-11-28T14:18:21  [run3-eval-fleurs] exit 0
+    Evaluating on 150 clips from data\stt\fleurs-ta\test (cpu)
+    model                                           WER %   CER %      CER 95% CI    RTF
+    base                                           100.84   54.44    48.19- 60.51   0.42
+    models/ada-stt-base-combo-ct2                   38.17   14.49    11.35- 17.82   0.40
+    models/ada-stt-base-combo3-ct2                  35.14   13.87    10.71- 17.16   0.40
