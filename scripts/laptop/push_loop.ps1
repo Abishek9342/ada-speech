@@ -1,3 +1,5 @@
+# Replaced 2026-11-28 12:50 by the Scheduled Task 'ADA git push' (C:\ada-data\push_once.ps1).
+exit 0
 # Owner request 2026-11-28: from 16:00, commit + push every 30 min so the code and logs can be
 # reviewed from Claude Code on the phone. Only logs/, evals/ and already-tracked files (never data,
 # models or tokens: those are gitignored and never added). Offline pushes fail quietly and the next
