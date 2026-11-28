@@ -376,7 +376,7 @@ def from_csv(src: Path, test_fraction: float, seed: int) -> dict[str, list[Row]]
 
 def apply_filters(splits: dict[str, list[Row]], drop_digit_clips: bool,
                   dedupe_test_sentences: bool, min_seconds: float) -> dict[str, list[Row]]:
-    """Quality filters. They only ever touch train; test stays as published."""
+    """Quality filters. They touch train (and, for sentence dedupe, dev); test stays as published."""
     if "train" not in splits:
         return splits
     from ada.text import normalize
@@ -389,6 +389,14 @@ def apply_filters(splits: dict[str, list[Row]], drop_digit_clips: bool,
     if dedupe_test_sentences and held_out:
         test_sentences = {normalize(r[1]) for s in held_out for r in splits[s]}
         train = [r for r in train if normalize(r[1]) not in test_sentences]
+        # Dev picks the checkpoint, so it must not share sentences with test either
+        # (Common Voice's official dev/test and MILE's held-out speakers share a few prompts).
+        if "dev" in splits:
+            tested = {normalize(r[1]) for s in ("test", "test-known") if s in splits for r in splits[s]}
+            dev = [r for r in splits["dev"] if normalize(r[1]) not in tested]
+            if len(dev) != len(splits["dev"]):
+                print(f"Dedupe removed {len(splits['dev']) - len(dev)} dev clips whose sentence is in test.")
+            splits = {**splits, "dev": dev}
     if min_seconds > 0:
         def long_enough(row: Row) -> bool:
             d = _duration(row[0])

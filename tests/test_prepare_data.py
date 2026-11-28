@@ -199,3 +199,14 @@ def test_dedupe_also_covers_dev_and_test_known():
     out = prep.apply_filters(splits, drop_digit_clips=False, dedupe_test_sentences=True,
                              min_seconds=0)
     assert [r[1] for r in out["train"]] == ["மூன்று"]
+
+
+def test_dedupe_removes_test_sentences_from_dev_too():
+    p = Path("x.wav")
+    splits = {"train": [(p, "நான்கு", "")],
+              "dev": [(p, "ஒன்று", ""), (p, "ஐந்து", "")],
+              "test": [(p, "ஒன்று!", "")], "test-known": [(p, "ஆறு", "")]}
+    out = prep.apply_filters(splits, drop_digit_clips=False, dedupe_test_sentences=True,
+                             min_seconds=0)
+    assert [r[1] for r in out["dev"]] == ["ஐந்து"]
+    assert out["test"] == splits["test"]

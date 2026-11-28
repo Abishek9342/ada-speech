@@ -47,3 +47,12 @@ def test_cap_per_speaker():
     kept = comb.cap_per_speaker(rows, 3, 0)
     assert sum(r["speaker"] == "big" for r in kept) == 3
     assert sum(r["speaker"] == "small" for r in kept) == 1
+
+
+def test_train_is_deduped_against_combined_dev(tmp_path):
+    _meta(tmp_path / "a" / "train", [("1.mp3", "வணக்கம்", "2.0", "s1"), ("2.mp3", "நன்றி", "2.0", "s1")])
+    _meta(tmp_path / "b" / "dev", [("3.flac", "வணக்கம்!", "2.0", "s3")])
+    counts = comb.combine([tmp_path / "a", tmp_path / "b"], tmp_path / "combo", None, 0)
+    assert counts["train"] == {"a": 1}
+    assert counts["excluded_dev_sentences"] == {"a": 1}
+    assert [r["transcription"] for r in comb.read_rows(tmp_path / "combo" / "train")] == ["நன்றி"]

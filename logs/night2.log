@@ -1,0 +1,8 @@
+﻿2026-11-28T09:29:04  === NIGHT2 START (PID 64268)
+2026-11-28T10:37:08  data prep done
+2026-11-28T10:37:08    cv2-audit: LEAK CHECK: FAIL ['test_sentences_seen_in_dev']
+2026-11-28T10:37:08    kb2-audit: LEAK CHECK: PASS
+2026-11-28T10:37:08    mile2-audit: LEAK CHECK: FAIL ['test_sentences_seen_in_dev']
+2026-11-28T10:37:08    combo4-audit: LEAK CHECK: FAIL ['dev_sentences_seen_in_train']
+2026-11-28T10:38:22  night2 stopped by Claude: leak gate failed on 3 small sentence overlaps; filters fixed, prep re-run (attempt 1 log: logs/day2_prep_attempt1.log)
+2026-11-28T10:38:42  === NIGHT2 START (PID 34200)

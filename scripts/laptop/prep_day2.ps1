@@ -18,7 +18,8 @@ function Invoke-Py([string]$name, [string[]]$pyArgs) {
 }
 $common = @('--drop-digit-clips', '--dedupe-test-sentences', '--min-seconds', '1', '--punctuation', 'none')
 Write-Log "=== DAY 2 PREP START (PID $PID)"
-foreach ($d in 'cv2-ta', 'kb2-ta', 'mile2-ta', 'combo4-ta') { if (Test-Path "data\stt\$d") { Remove-Item -Recurse -Force "data\stt\$d" } }
+# Attempt 2 (10:45): keep converted audio (existing files are skipped, metadata.csv is rewritten); rebuild only combo4.
+if (Test-Path 'data\stt\combo4-ta') { Remove-Item -Recurse -Force 'data\stt\combo4-ta' }
 
 $null = Invoke-Py 'cv2-prep' (@('scripts/stt/prepare_data.py', '--format', 'commonvoice', '--src', 'C:\ada-data\raw\cv-corpus-27.0-2026-09-11\ta',
     '--out', 'data/stt/cv2-ta', '--flac16k', '--workers', '6') + $common)

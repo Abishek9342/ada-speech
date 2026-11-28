@@ -11,6 +11,7 @@ Options:
   --max-per-speaker N        cap train clips per speaker (keeps one voice from dominating; seeded)
   --exclude-sentences-of D.. drop train/dev clips whose normalized sentence appears in any of these
                              test folders (sentences can be shared ACROSS corpora)
+Train is always deduped against the combined dev, so no dev sentence is trained on.
 """
 
 from __future__ import annotations
@@ -50,7 +51,8 @@ def combine(sources: list[Path], out: Path, max_per_speaker: int | None, seed: i
 
     banned = {normalize(r["transcription"]) for d in (exclude_from or []) for r in read_rows(d)}
     counts: dict[str, dict[str, int]] = {}
-    for split in ("train", "dev"):
+    dev_sentences: set[str] = set()
+    for split in ("dev", "train"):   # dev first: train is then deduped against the COMBINED dev
         dst = out / split
         rows_out: list[dict[str, str]] = []
         for src in sources:
@@ -64,6 +66,13 @@ def combine(sources: list[Path], out: Path, max_per_speaker: int | None, seed: i
                 if len(rows) != before:
                     counts.setdefault("excluded_test_sentences", {})[f"{src.name}/{split}"] = (
                         before - len(rows))
+            if split == "dev":
+                dev_sentences.update(normalize(r["transcription"]) for r in rows)
+            else:   # a sentence can be in one corpus's dev and another corpus's train
+                before = len(rows)
+                rows = [r for r in rows if normalize(r["transcription"]) not in dev_sentences]
+                if len(rows) != before:
+                    counts.setdefault("excluded_dev_sentences", {})[src.name] = before - len(rows)
             if split == "train" and max_per_speaker:
                 rows = cap_per_speaker(rows, max_per_speaker, seed)
             rel = Path(os.path.relpath(folder, dst))
