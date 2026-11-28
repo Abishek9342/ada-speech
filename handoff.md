@@ -17,8 +17,16 @@
 - Nothing published. Running unattended: run 3 finish + export + evals, then `night2.ps1` (run 4 + all
   fixed-list evals), `push_loop.ps1` pushes every 30 min from 16:00 until 2026-11-29 12:00.
 
+- Run 3 done (`models/ada-stt-base-combo3-ct2`): CV CER 5.22, Kathbath unseen 6.16, FLEURS no-digits 10.56.
+- Run 4 first attempt spilled VRAM into shared RAM (182 s/step); restarted 15:23 with the safe config
+  (grad checkpointing on, workers 0), ~3.1 s/step, ETA about 20:50. `speed_watchdog.ps1` restarts it from
+  the last checkpoint if it slows past 15 s/step for 30 min.
+- Pushes: Scheduled Task "ADA git push" every 30 min (`C:\ada-data\push_once.ps1`), replaces push_loop.
+
 **Open / next**
 - Read `logs/day2_results.md`; check run 4 against the release bar (in `DAY2_PLAN.md`).
+- Remove the Scheduled Task "ADA git push" when the owner no longer wants auto-pushes.
+- Smoke test should run full-size batches a few minutes and check shared GPU memory (missed the overflow).
 - Remove the Scheduled Task "ADA night2 resume" (`Unregister-ScheduledTask -TaskName 'ADA night2 resume'`).
 - Run 5: noise / non-speech augmentation (hallucination without VAD).
 - Windows Update paused until 2026-12-05; resume it after the runs.
